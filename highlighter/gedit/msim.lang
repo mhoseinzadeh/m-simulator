@@ -1,0 +1,394 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+ Authors: Morteza Hoseinzadeh
+ Copyright (C) 2012-2013 Morteza Hoseinzadeh <m.hoseinzadeh85@gmail.com>
+
+ This library is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Library General Public
+ License as published by the Free Software Foundation; either
+ version 2 of the License, or (at your option) any later version.
+
+ This library is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ Library General Public License for more details.
+
+ You should have received a copy of the GNU Library General Public
+ License along with this library; if not, write to the
+ Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ Boston, MA 02111-1307, USA.
+
+-->
+<language id="msim" _name="M-Simulator" version="2.0" _section="Sources">
+    <metadata>
+      <property name="mimetypes">text/x-msim</property>
+      <property name="globs">*.msim</property>
+      <property name="line-comment-start">//</property>
+      <property name="block-comment-start">/*</property>
+      <property name="block-comment-end">*/</property>
+    </metadata>
+
+    <styles>
+        <style id="comment"           _name="Comment"             map-to="def:comment"/>
+        <style id="error"             _name="Error"               map-to="def:error"/>
+        <style id="string"            _name="String"              map-to="def:string"/>
+        <style id="preprocessor"      _name="Preprocessor"        map-to="def:preprocessor"/>
+        <style id="common-defines"    _name="Common Defines"      map-to="def:special-constant"/>
+        <style id="included-file"     _name="Included File"       map-to="def:string"/>
+        <style id="char"              _name="Character"           map-to="def:character"/>
+        <style id="keyword"           _name="Keyword"             map-to="def:keyword"/>
+        <style id="type"              _name="Data Type"           map-to="def:type"/>
+        <style id="storage-class"     _name="Storage Class"       map-to="def:type"/>
+        <style id="printf"            _name="printf Conversion"   map-to="def:special-char"/>
+        <style id="escaped-character" _name="Escaped Character"   map-to="def:special-char"/>
+        <style id="floating-point"    _name="Floating point number" map-to="def:floating-point"/>
+        <style id="number"           _name="Decimal number"      map-to="def:decimal"/>
+        <style id="octal"             _name="Octal number"        map-to="def:base-n-integer"/>
+        <style id="hexadecimal"       _name="Hexadecimal number"  map-to="def:base-n-integer"/>
+        <style id="boolean"           _name="Boolean value"       map-to="def:boolean"/>
+    </styles>
+
+    <definitions>
+        <!-- TODO: what about scanf ? -->
+        <!-- man 3 printf -->
+        <context id="printf" style-ref="printf" extend-parent="false">
+            <match extended="true">
+                \%\%|\%
+                (?:[1-9][0-9]*\$)?      # argument
+                [#0\-\ \+\'I]*          # flags
+                (?:[1-9][0-9]*|\*)?     # width
+                (?:\.\-?(?:[0-9]+|\*))? # precision
+                (?:hh|ll|[hlLqjzt])?    # length modifier
+                [diouxXeEfFgGaAcsCSpnm] # conversion specifier
+            </match>
+        </context>
+
+        <define-regex id="escaped-character" extended="true">
+            \\(                   # leading backslash
+            [\\\"\'nrbtfav\?] |   # escaped character
+            [0-7]{1,3} |          # one, two, or three octal digits
+            x[0-9A-Fa-f]+         # 'x' followed by hex digits
+            )
+        </define-regex>
+
+        <context id="msim" class="no-spell-check">
+            <include>
+
+                <!-- gtk-doc -->
+                <context ref="gtk-doc:inline-docs-section"/>
+
+                <!-- Comments -->
+                <context id="comment" style-ref="comment" end-at-line-end="true" class="comment" class-disabled="no-spell-check">
+                    <start>//</start>
+
+                    <include>
+                      <context ref="def:in-line-comment"/>
+                    </include>
+                </context>
+
+                <context id="comment-multiline" style-ref="comment" class="comment" class-disabled="no-spell-check">
+                    <start>/\*</start>
+                    <end>\*/</end>
+                    <include>
+                        <context ref="def:in-comment"/>
+                    </include>
+                </context>
+
+                <context id="close-comment-outside-comment" style-ref="error">
+                    <match>\*/(?!\*)</match>
+                </context>
+
+                <!-- Preprocessor -->
+                <define-regex id="preproc-start">^\s*#\s*</define-regex>
+
+                <context id="if0-comment" style-ref="comment">
+                    <start>\%{preproc-start}if\b\s*0\b</start>
+                    <end>\%{preproc-start}(endif|else|elif)\b</end>
+                    <include>
+                        <context id="if-in-if0">
+                            <start>\%{preproc-start}if(n?def)?\b</start>
+                            <end>\%{preproc-start}endif\b</end>
+                            <include>
+                                <context ref="if-in-if0"/>
+                                <context ref="def:in-comment"/>
+                            </include>
+                        </context>
+                        <context ref="def:in-comment"/>
+                    </include>
+                </context>
+
+                <context id="include" style-ref="preprocessor">
+                    <match extended="true">
+                            \%{preproc-start}
+                            (include|import|cinclude)\s*
+                            (".*?"|&lt;.*&gt;)
+                    </match>
+                    <include>
+                        <context id="included-file" sub-pattern="2" style-ref="included-file"/>
+                    </include>
+                </context>
+
+                <context id="preprocessor" style-ref="preprocessor" end-at-line-end="true">
+                    <start extended="true">
+                            \%{preproc-start}
+                            ((define|undef|error|pragma|ident|if(n?def)?|else|elif|endif|line|warning)|
+                             c(define|undef|error|pragma|ident|if(n?def)?|else|elif|endif|line|warning))
+                            \b
+                    </start>
+                    <include>
+                        <context ref="def:line-continue" ignore-style="true"/>
+                        <context ref="string" ignore-style="true"/>
+                        <context ref="comment"/>
+                        <context ref="comment-multiline"/>
+                    </include>
+                </context>
+
+                <context id="string" style-ref="string" end-at-line-end="true" class="string" class-disabled="no-spell-check">
+                    <start>L?"</start>
+                    <end>"</end>
+                    <include>
+                        <context ref="printf"/>
+                        <context id="escaped-character" style-ref="escaped-character">
+                            <match>\%{escaped-character}</match>
+                        </context>
+                        <context ref="def:line-continue"/>
+                    </include>
+                </context>
+
+                <context id="char" style-ref="char">
+                    <match>L?'(\%{escaped-character}|.)'</match>
+                </context>
+
+                <context id="iterator" style-ref="sh:variable">
+                    <match>\#\w+</match>
+                </context>
+
+                <context id="field" style-ref="latex:command">
+                    <match>\w+\s*@\s*\w+</match>
+                </context>
+
+                <context id="constant" style-ref="xml:tags">
+                    <match>\$\w+</match>
+                </context>
+
+                <!-- http://www.lysator.liu.se/c/ANSI-C-grammar-l.html -->
+                <context id="float" style-ref="number">
+                    <match extended="true">
+                        (?&lt;![\w\.])
+                        ((\.[0-9]+ | [0-9]+\.[0-9]*) ([Ee][+-]?[0-9]*)? |
+                         ([0-9]+[Ee][+-]?[0-9]*) |
+                         (\.[0-9]+ | [0-9]+\.[0-9]*) ([Ee][+-]?[0-9]*)? ([\w]+)?)
+                        [fFlL]?
+                        (?![\w\.])
+                    </match>
+                </context>
+
+                <context id="hexadecimal" style-ref="number">
+                    <match extended="true">
+                        (?&lt;![\w\.])
+                        0[xX][a-fA-F0-9]+[uUlL]*
+                        (?![\w\.])
+                    </match>
+                </context>
+
+                <context id="octal" style-ref="number">
+                    <match extended="true">
+                        (?&lt;![\w\.])
+                        0[0-7]+[uUlL]*
+                        (?![\w\.])
+                    </match>
+                </context>
+
+                <context id="decimal" style-ref="number">
+                    <match extended="true">
+                        (?&lt;![\w\.])
+                        [0-9]+([\w]+)?[uUlL]*
+                        (?![\w\.])
+                    </match>
+                </context>
+
+                <context id="keywords" style-ref="keyword" class="keyword">
+                    <keyword>asm</keyword>
+                    <keyword>auto</keyword>
+                    <keyword>break</keyword>
+                    <keyword>case</keyword>
+                    <keyword>catch</keyword>
+                    <keyword>class</keyword>
+                    <keyword>const</keyword>
+                    <keyword>const_cast</keyword>
+                    <keyword>continue</keyword>
+                    <keyword>default</keyword>
+                    <keyword>delete</keyword>
+                    <keyword>do</keyword>
+                    <keyword>double</keyword>
+                    <keyword>dynamic_cast</keyword>
+                    <keyword>else</keyword>
+                    <keyword>enum</keyword>
+                    <keyword>explicit</keyword>
+                    <keyword>export</keyword>
+                    <keyword>extern</keyword>
+                    <keyword>false</keyword>
+                    <keyword>for</keyword>
+                    <keyword>friend</keyword>
+                    <keyword>goto</keyword>
+                    <keyword>if</keyword>
+                    <keyword>inline</keyword>
+                    <keyword>mutable</keyword>
+                    <keyword>namespace</keyword>
+                    <keyword>new</keyword>
+                    <keyword>operator</keyword>
+                    <keyword>private</keyword>
+                    <keyword>protected</keyword>
+                    <keyword>public</keyword>
+                    <keyword>register</keyword>
+                    <keyword>reinterpret_cast</keyword>
+                    <keyword>return</keyword>
+                    <keyword>short</keyword>
+                    <keyword>signed</keyword>
+                    <keyword>sizeof</keyword>
+                    <keyword>static</keyword>
+                    <keyword>static_cast</keyword>
+                    <keyword>struct</keyword>
+                    <keyword>switch</keyword>
+                    <keyword>template</keyword>
+                    <keyword>this</keyword>
+                    <keyword>throw</keyword>
+                    <keyword>true</keyword>
+                    <keyword>try</keyword>
+                    <keyword>typedef</keyword>
+                    <keyword>typeid</keyword>
+                    <keyword>typename</keyword>
+                    <keyword>union</keyword>
+                    <keyword>unsigned</keyword>
+                    <keyword>using</keyword>
+                    <keyword>virtual</keyword>
+                    <keyword>volatile</keyword>
+                    <keyword>wchar_t</keyword>
+                    <keyword>while</keyword>
+                    <keyword>and</keyword>
+                    <keyword>and_eq</keyword>
+                    <keyword>bitand</keyword>
+                    <keyword>bitor</keyword>
+                    <keyword>compl</keyword>
+                    <keyword>not</keyword>
+                    <keyword>not_eq</keyword>
+                    <keyword>or</keyword>
+                    <keyword>or_eq</keyword>
+                    <keyword>xor</keyword>
+                    <keyword>xor_eq</keyword>
+                    <keyword>module</keyword>
+                    <keyword>extends</keyword>
+                    <keyword>specifications</keyword>
+                    <keyword>parameters</keyword>
+                    <keyword>parameter</keyword>
+                    <keyword>definitions</keyword>
+                    <keyword>topology</keyword>
+                    <keyword>implementation</keyword>
+                    <keyword>pass</keyword>
+                    <keyword>is</keyword>
+                    <keyword>as</keyword>
+                    <keyword>submodule</keyword>
+                    <keyword>block</keyword>
+                    <keyword>begin</keyword>
+                    <keyword>end</keyword>
+                    <keyword>architecture</keyword>
+                    <keyword>merged</keyword>
+                    <keyword>fields</keyword>
+                    <keyword>field</keyword>
+                    <keyword>from</keyword>
+                    <keyword>initially</keyword>
+                    <keyword>disabled</keyword>
+                    <keyword>enabled</keyword>
+                    <keyword>when</keyword>
+                    <keyword>record</keyword>
+                    <keyword>inherit</keyword>
+                    <keyword>to</keyword>
+                    <keyword>whenever</keyword>
+                    <keyword>otherwise</keyword>
+                    <keyword>primitive</keyword>
+                    <keyword>pipelined</keyword>
+                    <keyword>observed</keyword>
+                </context>
+
+                <context id="types" style-ref="keyword" class="type">
+                    <keyword>_Bool</keyword>
+                    <keyword>_Complex</keyword>
+                    <keyword>_Imaginary</keyword>
+                    <keyword>bool</keyword>
+                    <keyword>char</keyword>
+                    <keyword>double</keyword>
+                    <keyword>float</keyword>
+                    <keyword>int</keyword>
+                    <keyword>long</keyword>
+                    <keyword>short</keyword>
+                    <keyword>signed</keyword>
+                    <keyword>size_t</keyword>
+                    <keyword>unsigned</keyword>
+                    <keyword>void</keyword>
+                    <keyword>bool</keyword>
+                    <keyword>explicit</keyword>
+                    <keyword>export</keyword>
+                    <keyword>inline</keyword>
+                    <keyword>mutable</keyword>
+                    <keyword>wchar_t</keyword>
+                    <keyword>typical_system</keyword>
+                    <keyword>typical_module</keyword>
+                    <keyword>typical_core</keyword>
+                    <keyword>int8</keyword>
+                    <keyword>uint8</keyword>
+                    <keyword>int16</keyword>
+                    <keyword>uint16</keyword>
+                    <keyword>int32</keyword>
+                    <keyword>uint32</keyword>
+                    <keyword>int64</keyword>
+                    <keyword>uint64</keyword>
+                    <keyword>boolean</keyword>
+                    <keyword>string</keyword>
+                    <keyword>typical_cache</keyword>
+                    <keyword>typical_core</keyword>
+                    <keyword>_address</keyword>
+                    <keyword>_data</keyword>
+                    <keyword>byte</keyword>
+                    <keyword>bit</keyword>
+                </context>
+
+                <context id="storage-class" style-ref="storage-class" class="storage-class">
+                    <keyword>auto</keyword>
+                    <keyword>const</keyword>
+                    <keyword>extern</keyword>
+                    <keyword>inline</keyword>
+                    <keyword>register</keyword>
+                    <keyword>restrict</keyword>
+                    <keyword>static</keyword>
+                    <keyword>volatile</keyword>
+                </context>
+
+                <context id="common-defines" style-ref="common-defines" class="common-defines">
+                    <keyword>NULL</keyword>
+                    <keyword>MAX</keyword>
+                    <keyword>MIN</keyword>
+                    <keyword>TRUE</keyword>
+                    <keyword>FALSE</keyword>
+                    <keyword>__LINE__</keyword>
+                    <keyword>__DATA__</keyword>
+                    <keyword>__FILE__</keyword>
+                    <keyword>__func__</keyword>
+                    <keyword>__TIME__</keyword>
+                    <keyword>__STDC__</keyword>
+                    <keyword>__STDC__</keyword>
+                    <keyword>__cplusplus</keyword>
+                    <keyword>VERBOSE</keyword>
+                    <keyword>TRACE</keyword>
+                </context>
+
+                <context id="boolean" style-ref="boolean" class="boolean">
+                    <keyword>true</keyword>
+                    <keyword>false</keyword>
+                    <keyword>desabled</keyword>
+                    <keyword>enabled</keyword>
+                </context>
+            </include>
+        </context>
+    </definitions>
+</language>

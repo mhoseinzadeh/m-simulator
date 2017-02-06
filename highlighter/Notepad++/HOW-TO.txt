@@ -1,0 +1,5 @@
+
+**To set the highlighter
+	- Open Notepad++
+	- Go to menu View > User-Defined Dialouge...
+	- Press Import and select msim.xml

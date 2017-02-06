@@ -1,0 +1,260 @@
+#ifndef CACHES_H
+#define CACHES_H
+
+#include "stdlib.msim"
+#include "directory.msim"
+
+module set_associative extends typical_cache:
+parameters 
+	near_actionor initially false;
+	number_of_sets initially 128;
+	associativity initially 8;	
+	block_size initially 4;	
+	use_coherency initially false;
+	access_latency initially 2n;
+	energy_per_access initially 10pJ;
+definitions
+	int block_index = 0;
+	uint32 evictions = 0;
+	whenever(use_coherency) directory dir;
+	const w = log2(block_size);	
+	const d = log2(number_of_sets); 
+architecture	
+	record set[number_of_sets] 
+		record line[associativity] 
+			uint32 tag = 0;
+			_data word[block_size];
+			bit valid=false;
+			bit dirty=false;
+			uint32 counter=0;	
+		end;
+	end; 
+fields					
+	field word from 0 to w - 1;
+	field set from w to w + d - 1;
+	field tag from w + d to end;
+implementation
+	whenever(use_coherency)  {
+		block coherency_check(_address addr) {
+			static bool broadcasting = false;
+			if(broadcasting) return;
+			broadcasting = true;
+			uint8 state = dir.get_state(addr, cache_index);
+			if (state == MODIFIED) { 
+				broadcasting = false;
+				return;
+			} else if (state == OWNED) {
+				if (access_type == ttDataWrite) {
+					dir.broadcast_state(addr, INVALID);
+					dir.set_state(addr, cache_index, MODIFIED);
+				}
+			} else if (state == EXCLUSIVE) {
+				if (access_type == ttDataWrite) {
+					dir.set_state(addr, cache_index, MODIFIED);
+				}
+			} else if (state == SHARED) {
+				if (access_type == ttDataWrite) {
+					dir.set_state(addr, cache_index, OWNED);
+				} else {
+					int other = dir.exists(addr, OWNED);
+					if (other > -1) {
+						dir.read_from_other_cache(other, addr,
+							set[addr@set].line[block_index].word, block_size);							
+						dir.broadcast_block(addr, set[addr@set].line[block_index].word, block_size);
+						dir.broadcast_state(addr, SHARED);
+					}
+				}
+			} else if (state == INVALID) {
+				int other = dir.exists(addr, MODIFIED);
+				if (other == -1) other = dir.exists(addr, OWNED);
+				if (other == -1) other = dir.exists(addr, EXCLUSIVE);
+				if (other == -1) other = dir.exists(addr, SHARED);
+				if (other  > -1) {
+					dir.read_from_other_cache(other, addr, set[addr@set].line[block_index].word, block_size);
+					dir.broadcast_block(addr, set[addr@set].line[block_index].word, block_size);
+					dir.broadcast_state(addr, SHARED);
+				} 
+			}
+			broadcasting = false;
+		}
+	}
+	block lookup(_address addr): bool {
+		for(int i=0 ; i<associativity ; i++) {
+			if((addr@tag==set[addr@set].line[i].tag) && (set[addr@set].line[i].valid)) {
+				block_index = i;
+				trace(0x0A, "trying to access %s at %llX to %s is HIT", name, addr, ((access_type == ttDataWrite)?"WRITE ON":"READ FROM"));
+				whenever(use_coherency) 
+					coherency_check((addr >> $w) << $w); 
+				return true;
+			}
+		}
+		trace(0x0C, "trying to access %s at %llX to %s is MISSED", name, addr, ((access_type == ttDataWrite)?"WRITE ON":"READ FROM"));
+		whenever(use_coherency) {
+			_address coh_addr = (addr >> $w) << $w;
+			//if (access_type != ttDataWrite) {
+				trace(0x0C, "searching other states...");
+				int other = dir.exists(coh_addr, MODIFIED);
+				if (other == -1) other = dir.exists(coh_addr, OWNED);
+				if (other == -1) other = dir.exists(coh_addr, EXCLUSIVE);
+				if (other == -1) other = dir.exists(coh_addr, SHARED);
+				if ((other  > -1) && (other != cache_index)) {
+					int set_idx = addr@set;
+					block_index = search(coh_addr);
+					trace(0x0C, "found in cache[%d]", other);
+					if(set[set_idx].line[block_index].dirty && set[set_idx].line[block_index].valid) {
+						trace(0x0C, "eviction required");
+						evict(set_idx, block_index);
+					}
+					trace(0x0C, "read from cache[%d]", other);
+					dir.read_from_other_cache(other, coh_addr, set[set_idx].line[block_index].word, block_size);
+					set[set_idx].line[block_index].valid = true;
+					set[set_idx].line[block_index].tag = addr@tag;
+					set[set_idx].line[block_index].dirty = false;
+					trace(0x0C, "broadcast data");
+					dir.broadcast_block(coh_addr, set[set_idx].line[block_index].word, block_size);
+					dir.broadcast_state(coh_addr, SHARED);	
+					//dir.set_state(coh_addr, cache_index, SHARED);	
+					return true;
+				}
+			//}
+			dir.set_state(coh_addr, cache_index, EXCLUSIVE);
+		}
+		return false;
+	}
+	block search(_address &addr): int {
+		int index = -1;
+		for( int j=0; j<associativity; j++) {
+			if(!set[addr@set].line[j].valid) {
+				return j;
+			}
+		}
+		uint32 max=0;
+		for( int j=0; j<associativity; j++) {
+			if(set[addr@set].line[j].counter>max) {
+				index=j;
+				max=set[addr@set].line[j].counter;
+			}
+		}
+		if(index == -1) return 0;
+		return index;
+	}
+	block evict(int set_idx, int block_idx) {
+		trace("writing back block %d of set %lld of %s on %s ...", block_idx, set_idx, name, prev_level.name);
+		_address a = (set_idx << ($w)) | (set[set_idx].line[block_idx].tag << ($d+$w));
+		if(sim_step >= offset) evictions++;
+		prev_level.write_block(a, set[set_idx].line[block_idx].word, block_size);
+	}
+	block update(_address addr, int block_idx) {
+		_data temp[block_size];
+		prev_level.read_block(addr, temp, block_size);
+		write_block(addr, temp, block_size);
+		set[addr@set].line[block_idx].dirty = false;
+	}
+	block replace(_address addr) {
+		block_index = search(addr);
+		int set_idx = addr@set;
+		addr = (addr >> $w) << $w; 
+		if(set[set_idx].line[block_index].dirty && set[set_idx].line[block_index].valid) 
+			evict(set_idx, block_index);
+		set[set_idx].line[block_index].tag = addr@tag;
+		set[set_idx].line[block_index].valid = true;
+		set[set_idx].line[block_index].counter = 0;
+		set[set_idx].line[block_index].dirty = false;
+		//whenever(near_actionor == false) {
+		//	if(access_type == ttDataRead) // It must be added for level 2, 3, ...
+		//}
+		update(addr, block_index);
+	}
+	block read_block(_address addr, _data* dst_block, uint32 size) serial slip
+	~latency(access_latency) ~energy(energy_per_access) {
+		trace("reading a block of %ld word(s) from %s at %llX ...", size, name, addr);
+		int set_idx = addr@set;
+		for(int k=0;k<associativity ;k++) {
+			set[set_idx].line[k].counter++;
+		}
+		set[set_idx].line[block_index].counter = 0;
+		int start = addr@word;
+		/*
+		if((addr >> $w) != (__current_transaction.physical_address >> $w)) {
+			_address a = __current_transaction.physical_address;
+			printf("   %s\n   c: %llx\n   d: %llx\n", name, addr, a);
+			printf("   set: %llx \ttag: %llx\n", addr@set, addr@tag);
+			printf("   set: %llx \ttag: %llx\n\n", a@set, a@tag);
+			print_block(__current_transaction.physical_address);
+		}
+		*/
+		for (int i=0; i<size; i++) {
+			if(i+start == block_size) {
+				trace("overflow");
+				read_block(addr+i, dst_block+i, size-i);
+				return;
+			}
+			dst_block[i] = set[set_idx].line[block_index].word[i+start];
+		}
+	}
+	block write_block(_address addr, _data* src_block, uint32 size) serial slip
+	~latency(access_latency) ~energy(energy_per_access) {
+		trace("writing a block of %d word(s) on %s at %llX ...", size, name, addr);
+		int set_idx = addr@set;		
+		for(int k=0;k<associativity ;k++) {
+			set[set_idx].line[k].counter++;
+		}
+		set[set_idx].line[block_index].counter = 0;
+		set[set_idx].line[block_index].dirty = true;
+		whenever(use_coherency) {
+			_address a = (addr >> $w) << $w;
+			dir.broadcast_state(a, INVALID);
+			dir.set_state(a, cache_index, MODIFIED);
+		}
+		int start = addr@word;
+		for (int i=0; i<size; i++) {
+			if(i+start == block_size) {
+				write_block(addr+i, src_block+i, size-i);
+				return;
+			}
+			set[set_idx].line[block_index].word[i+start] = src_block[i];
+		}
+	}
+	block report {
+		long double total = read_miss+read_hit+write_hit+write_miss;
+		if(total > 0)
+			printf("%s.hit-rate = %.2f%%\n", name, (float)((long double)(write_hit+read_hit)/total*100));
+	}
+	block set_data(_address addr, _data d) {
+		if(set[addr@set].line[block_index].tag != addr@tag) {
+			uint32 s_idx=addr@set, w_idx = addr@word, tag_idx=addr@tag;
+			for(int i=0 ; i<associativity ; i++) {
+				if(tag_idx==set[s_idx].line[i].tag && set[s_idx].line[i].valid) {
+					set[s_idx].line[i].word[w_idx] = d;
+					break;
+				}
+			}
+		} else set[addr@set].line[block_index].word[addr@word] = d;
+		prev_level.set_data(addr, d);
+	}
+	block block_address(_address addr): _address {
+		return addr >> $w;
+	}
+	block print_block(_address addr) {
+		int w_idx = addr@word;
+		_address aaa = addr;
+		addr = (addr >> $w) << $w;
+		uint32 s_idx=addr@set, b_idx=block_index;
+		printf("%s at 0x%llx (set: %ld, block: %ld)", name, addr, s_idx, b_idx);
+		for(int i=0; i<block_size; i++) {
+			if(i%2==0) cout << " ";
+			if(i%16==0) printf("\n0x%.010llx  ", addr+i);
+			#ifndef __WIN32__
+			if(i == w_idx)
+				printf("\033[1;32m%.02x\033[0;m", set[s_idx].line[b_idx].word[i]);
+			else
+			#endif
+				printf("%.02x", set[s_idx].line[b_idx].word[i]);
+		}
+		cout << endl;
+		whenever(use_coherency) 
+			dir.print_status(addr);
+	}
+end;
+
+#endif

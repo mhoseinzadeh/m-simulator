@@ -1,0 +1,58 @@
+#ifndef CORE
+#define CORE
+
+#include "stdlib.msim"
+#include "main.msim"
+
+module typical_tlb:
+parameters
+	page_size = 2^13; // must be consistent with simics (13-bits)
+definitions
+	const p = log2(page_size);
+	typical_memory main;
+fields
+	field offset from 0 to p-1;
+	field page from p to end; 
+architecture
+	record table[inf]
+		_address physical;
+	end;
+implementation
+	block add(_address v, _address p) {
+//		cout << "TLB add " << cpu_number << " v:" << v << " p:" << p << endl;
+		table[v@page].physical = p@page;
+	}
+	block remove(_address v, _address p) {
+//		cout << "TLB remove " << cpu_number << " v:" << v << " p:" << p << endl;
+		table.erase(v@page);
+	}
+	block lookup(_address v): bool {
+		if(table.count(v@page)) return true;
+		return false;
+	}
+	block translate(_address v): _address {
+		return (table[v@page].physical << $p) | v@offset;
+	}
+end;
+
+module typical_core: 
+definitions
+	typical_tlb tlb;
+implementation
+	block exec(message_t msg) {}
+	block set_data(_address addr, _data d) {}
+	block tlb_add(_address v, _address p) {
+		tlb.add(v, p);
+	}
+	block tlb_remove(_address v, _address p) {
+		tlb.remove(v, p);
+	}
+	block tlb_lookup(_address v): bool {
+		return tlb.lookup(v);
+	}
+	block translate(_address v): _address {
+		return tlb.translate(v);
+	}
+end;
+
+#endif

@@ -1,0 +1,115 @@
+#ifndef DIRECTORY_H
+#define DIRECTORY_H
+
+#include "stdlib.msim"
+
+#define MODIFIED  4
+#define OWNED     3
+#define EXCLUSIVE 2
+#define SHARED    1
+#define INVALID   0
+
+const char* state_to_string(uint8 state) {
+	switch (state) {
+		case MODIFIED: return "\033[0;33mMODIFIED\033[0m";
+		case OWNED: return "\033[0;33mOWNED\033[0m";
+		case EXCLUSIVE: return "\033[0;33mEXCLUSIVE\033[0m";
+		case SHARED: return "\033[0;33mSHARED\033[0m";
+		case INVALID: return "\033[0;31mINVALID\033[0m";
+	}
+	return "UNKNOWN";
+}
+
+module directory:
+parameters
+	number_of_cores initially 4;
+	block_size initially 64;  
+definitions
+	typical_cache caches[number_of_cores];
+	const w = log2(block_size);
+architecture
+	record entry[inf]
+		record cache[number_of_cores]
+			uint8 state;
+			bit contains;
+		end;
+	end;
+implementation
+	block get_state(_address addr, int c_idx): uint8 {
+		addr >>= $w;
+		if (c_idx < 0 || c_idx >= number_of_cores) cout << c_idx << endl;
+		uint8 state = entry[addr].cache[c_idx].state;
+		trace("state of %s at address %llX is %s", caches[c_idx]->name, addr << $w, state_to_string(state));
+		return state;
+	}
+	block set_state(_address addr, int c_idx=0, uint8 state=INVALID) {
+		addr >>= $w;
+		if (c_idx < 0 || c_idx >= number_of_cores) cout << c_idx << endl;
+		trace("set state of %s to %s", caches[c_idx]->name, state_to_string(state));
+		entry[addr].cache[c_idx].contains = true;
+		entry[addr].cache[c_idx].state = state;
+	}
+	block exists(_address addr, uint8 state): int {
+		addr >>= $w;
+		for (int i = 0; i < number_of_cores; i++) {
+			if (entry[addr].cache[i].state==state && entry[addr].cache[i].contains){
+				trace("found %s is state of %s", caches[i]->name, state_to_string(state));
+				return i;
+			}
+		}
+		return -1;
+	}
+	block read_from_other_cache(int index, _address addr, _data* dst_block, int size) {
+		caches[index]->read_block(addr, dst_block, size);
+	}
+	block broadcast_state(_address addr, uint8 state) {
+		addr >>= $w;
+		trace("broadcast state %s to all cahces at %llX", state_to_string(state), (addr << $w));
+		for (int i = 0; i < number_of_cores; i++) {
+			if (entry[addr].cache[i].contains) {
+				entry[addr].cache[i].state = state;
+			}
+		}
+	}
+	block broadcast_block(_address addr, _data* data_block, int size) {
+		_address a = addr;
+		addr >>= $w;
+		trace("broadcast memory block to all at %llX", (addr << $w));
+		for (int i = 0; i < number_of_cores; i++) {
+			if (entry[addr].cache[i].contains) {
+				caches[i]->write_block(a, data_block, size);
+			}
+		}
+	}
+	block print_status(_address addr) {
+		static bool printing = false;
+		if(printing) return;
+		printing = true;
+		addr >>= $w;
+		printf("%s at p:0x%llx\n", name, addr << $w);
+		cout << "CORE:";
+		for (int i = 0; i < number_of_cores; i++) {
+			cout << '\t' << i << '\t';
+		}	
+		cout << endl;
+		cout << "STATE:";
+		for (int i = 0; i < number_of_cores; i++) {
+			cout << '\t' << state_to_string(entry[addr].cache[i].state) << "   ";
+		}
+		cout << endl;
+		cout << "DATA:";
+		for (int i = 0; i < number_of_cores; i++) {
+			cout << '\t' << ((entry[addr].cache[i].contains)?"YES\t":"NO\t");
+		}
+		cout << endl;
+		cout << "=====================================================\n";
+		for (int i = 0; i < number_of_cores; i++) {
+			if(entry[addr].cache[i].contains)
+				caches[i]->print_block(addr << $w);
+		}
+		cout << "=====================================================\n";
+		printing = false;
+	}
+end;
+
+#endif

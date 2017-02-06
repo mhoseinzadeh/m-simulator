@@ -1,0 +1,36 @@
+<NotepadPlus>
+    <UserLang name="M-Simulator" ext="msim">
+        <Settings>
+            <Global caseIgnored="no" escapeChar="\" />
+            <TreatAsSymbol comment="yes" commentLine="yes" />
+            <Prefix words1="no" words2="no" words3="yes" words4="no" />
+        </Settings>
+        <KeywordLists>
+            <Keywords name="Delimiters">&quot;&apos;0&quot;&apos;0</Keywords>
+            <Keywords name="Folder+"></Keywords>
+            <Keywords name="Folder-"></Keywords>
+            <Keywords name="Operators">&apos; - ! &quot; $ % &amp; ( ) , . : ; ? [ \ ] ^ ` { | } ~ + &lt; = &gt;</Keywords>
+            <Keywords name="Comment">1/* 2*/ 0//</Keywords>
+            <Keywords name="Words1">offline stall slipp asm auto break case catch class const const_cast continue default delete do double dynamic_cast else enum explicit export extern false for friend goto if inline mutable namespace new operator private protected public register reinterpret_cast return short signed sizeof static static_cast struct switch template this throw true try typedef typeid typename union unsigned using virtual volatile wchar_t while and and_eq bitand bitor compl not not_eq or or_eq xor xor_eq module extends specifications parameters parameter definitions topology implementation pass is as submodule function procedure block end architecture merged fields field from initially disabled enabled when record inherit to whenever otherwise parallel serial</Keywords>
+            <Keywords name="Words2">typical_node typical_module typical_system int8 uint8 int16 uint16 int32 uint32 int64 uint64 boolean bool string typical_core _address _data float byte int long char float int long void bit</Keywords>
+            <Keywords name="Words3">#</Keywords>
+            <Keywords name="Words4"></Keywords>
+        </KeywordLists>
+        <Styles>
+            <WordsStyle name="DEFAULT" styleID="11" fgColor="000000" bgColor="FFFFFF" fontName="Lucida Console" fontStyle="0" fontSize="10" />
+            <WordsStyle name="FOLDEROPEN" styleID="12" fgColor="000000" bgColor="FFFFFF" fontName="Lucida Console" fontStyle="0" />
+            <WordsStyle name="FOLDERCLOSE" styleID="13" fgColor="000000" bgColor="FFFFFF" fontName="Lucida Console" fontStyle="0" />
+            <WordsStyle name="KEYWORD1" styleID="5" fgColor="0000FF" bgColor="FFFFFF" fontName="Lucida Console" fontStyle="0" fontSize="10" />
+            <WordsStyle name="KEYWORD2" styleID="6" fgColor="800000" bgColor="FFFFFF" fontName="Lucida Console" fontStyle="0" />
+            <WordsStyle name="KEYWORD3" styleID="7" fgColor="808000" bgColor="FFFFFF" fontName="Lucida Console" fontStyle="0" />
+            <WordsStyle name="KEYWORD4" styleID="8" fgColor="000000" bgColor="FFFFFF" fontName="" fontStyle="0" />
+            <WordsStyle name="COMMENT" styleID="1" fgColor="008000" bgColor="FFFFFF" fontName="Lucida Console" fontStyle="0" />
+            <WordsStyle name="COMMENT LINE" styleID="2" fgColor="008000" bgColor="FFFFFF" fontName="Lucida Console" fontStyle="0" />
+            <WordsStyle name="NUMBER" styleID="4" fgColor="FF0000" bgColor="FFFFFF" fontName="Lucida Console" fontStyle="0" />
+            <WordsStyle name="OPERATOR" styleID="10" fgColor="008080" bgColor="FFFFFF" fontName="Lucida Console" fontStyle="0" />
+            <WordsStyle name="DELIMINER1" styleID="14" fgColor="800000" bgColor="FFFFFF" fontName="Lucida Console" fontStyle="0" />
+            <WordsStyle name="DELIMINER2" styleID="15" fgColor="FF0080" bgColor="FFFFFF" fontName="Lucida Console" fontStyle="0" />
+            <WordsStyle name="DELIMINER3" styleID="16" fgColor="000000" bgColor="FFFFFF" fontName="" fontStyle="0" />
+        </Styles>
+    </UserLang>
+</NotepadPlus>

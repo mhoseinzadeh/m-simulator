@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Scheme>
+	<keyword-classes>
+		<keyword-class name="msim"> 
+			asm auto break case catch class const const_cast continue
+			default delete do double dynamic_cast else enum explicit export extern false  for
+			friend goto if inline mutable namespace new operator private protected public
+			register reinterpret_cast return short signed sizeof static static_cast struct switch
+			template this throw true try typedef typeid typename union unsigned using
+			virtual volatile wchar_t while and and_eq bitand bitor compl not not_eq or cell
+			or_eq xor xor_eq module extends specifications parameters definitions topology
+			implementation pass is as submodule block end architecture channels input output
+			merged atomic fields field from initially disabled enabled when record inherit to 
+			whenever otherwise parallel serial stalling slipping quantized pipeline stage
+		</keyword-class>
+		<keyword-class name="msim2">
+			typical_module typical_system int8 uint8 int16 uint16 int32 uint32 int64 uint64 
+			boolean bool string typical_core typical_node _address _data float byte int long
+			char float int long void bit
+		</keyword-class>
+		<keyword-class name="msim3">
+			main_memory transaction opcode 
+			cacti::read_latency cacti::write_latency
+		</keyword-class>
+	</keyword-classes>
+	
+	<base-language name="msimbase">
+		<lexer name="cpp" />
+		<property name="lexer.cpp.track.preprocessor" value="0" />
+		<use-styles>
+			<style name="Default" key="32" />
+			<style name="Whitespace" key="0" class="whitespace" />
+			<style name="Comment" key="1" class="commentbox"/>
+			<style name="Comment Line" key="2" class="commentline"/>
+			
+			<style name="Number" key="4" class="number" fore="ff0000"/>
+			<style name="Keyword" key="5" class="keyword"/>
+			<style name="String" key="6" class="string" fore="a52d00"/>
+			<style name="Character" key="7" class="string"/>
+			
+			<style name="Operator" key="10" fore="388e8e"/>
+			<style name="Identifier" key="11" />
+			<style name="End of line string" key="12" fore="000000" back="e0c0e0" eolfilled="true"/>
+		</use-styles>
+	</base-language>
+	
+	<language base="msimbase" name="msim" title="M-Simulator" folding="true" foldcomments="true" foldelse="true" foldcompact="true" foldpreproc="true">
+		<lexer name="cpp" />
+		<property name="lexer.cpp.track.preprocessor" value="0" />
+		<comments line="//" streamStart="/*" streamEnd="*/" blockStart="/**" blockLine=" *" blockEnd=" */" />
+		<use-keywords>
+			<keyword key="0" name="Keywords" class="msim"/>
+			<keyword key="1" name="Data Types" class="msim2"/>
+			<keyword key="2" name="Special Variables" class="msim3"/>
+		</use-keywords>
+		<use-styles>
+			<style name="Doc Comments" key="3" class="commentdoc"/>
+			<style name="UUID" key="8" fore="804080"/>
+			<style name="Preprocessor" key="9" class="preprocessor"/>
+			<style name="Verbatim" key="13" fore="007f00" back="e0ffe0" eolfilled="true"/>
+			<style name="RegEx" key="14" fore="3f7f3f" back="e0f0ff" eolfilled="true"/>
+			<style name="Comment Line Doc" key="15" class="commentdoc"/>
+			<style name="Keyword 2" key="16" class="keyword" fore="b00040" italic="true"/>
+			<style name="Comment Doc Keyword" key="17" class="commentdoc" fore="3060a0"/>
+			<style name="Unknown Comment Doc Keyword" key="18" class="commentdoc" fore="804020"/>
+		</use-styles>
+	</language>
+	
+</Scheme> 

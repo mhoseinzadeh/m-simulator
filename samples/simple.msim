@@ -1,0 +1,118 @@
+#include "stdlib.msim"
+#include "caches.msim"
+#include "main.msim"
+#include "core.msim"
+
+#cinclude <fstream>
+
+double my_latency=0;
+double avg_latency=0;
+
+uint64 classes[4] = {0, 0, 0, 0};
+
+module system extends typical_system:
+parameters
+	number_of_cores initially 4;
+	memory_block_size initially 64;
+	cpu_transaction_size initially 64;
+definitions	
+
+	submodule RAM extends main_memory:
+	specifications
+		words_per_block is memory_block_size;
+		read_access_latency is 63.3ns;
+		write_access_latency is 63.3ns;
+	end;
+	
+	submodule DIR extends directory:
+	specifications
+		number_of_cores is owner::number_of_cores;
+		block_size is cpu_transaction_size;
+	end;
+
+	submodule L1_Private_ICache extends set_associative:	
+	specifications	
+		number_of_sets is 2^8;
+		associativity is 4;
+		block_size is cpu_transaction_size;
+		access_latency is 0;	// Latency of L1 caches are considered in core (prefetch) latencies
+	end;
+
+	submodule L1_Private_DCache extends L1_Private_ICache:	
+	specifications	
+		use_coherency is true;
+	end;
+
+	submodule L2_Shared_Cache extends set_associative:
+	specifications 
+		number_of_sets is 2^16; 
+		associativity is 4;
+		block_size is memory_block_size;
+		access_latency is 8ns;
+	end;
+
+	submodule core extends typical_core:
+	parameters
+		fetch_latency = 5;
+		reordered_buffer_size = 16; 
+	definitions	
+		L1_Private_ICache icache;
+		L1_Private_DCache dcache;
+	implementation 
+		block prefetch(message_t msg) serial
+		~latency((sim_step%reordered_buffer_size==0)?fetch_latency*one_cycle:one_cycle) {
+			// multi-stage superscalar: storing parallel instructions in ROB
+			_data tmp[4];
+			icache.read_block(msg.data[0].physical_address, tmp, 4);
+		}
+		block proc(message_t msg) serial ~latency(one_cycle) {}
+		block exec(message_t msg) serial ~latency((msg.type==itBranch)?3*one_cycle:one_cycle) {}
+	pass to prefetch;
+	pass to proc;
+	pass to exec;
+	pass data to dcache when message.type & (itLoad | itStore);
+	end;
+
+	core C[number_of_cores]; 
+	L2_Shared_Cache L2;
+	DIR dir;
+	RAM ram;	
+	
+pass all to C[#i[0,number_of_cores-1]] when cpu_number == #i;
+topology
+	C[#i[0,number_of_cores-1]].icache.prev_level = C[#i].dcache.prev_level <- L2;
+	C[#i[0,number_of_cores-1]].tlb.main <- ram;
+	L2.prev_level <- ram;
+	C[#i[0,number_of_cores-1]].dcache.dir <- dir;
+	dir.caches[#i[0,number_of_cores-1]] <- C[#i].dcache;	
+	dir.caches[#i[0,number_of_cores-1]].cache_index <- #i;
+implementation
+	block report() {
+		cout << unmatched << endl;
+		cout << matched << endl;
+		cout << "ipc = " << (double)(sim_step-offset)/(double)cycle() << endl;
+		cout << "cpu0.ipc = " << 1.0 / (cpu_time [ 0 ] * frequency / ( sim_step - offset ) * 4) << endl;
+		cout << "cpu1.ipc = " << 1.0 / (cpu_time [ 1 ] * frequency / ( sim_step - offset ) * 4) << endl;
+		cout << "cpu2.ipc = " << 1.0 / (cpu_time [ 2 ] * frequency / ( sim_step - offset ) * 4) << endl;
+		cout << "cpu3.ipc = " << 1.0 / (cpu_time [ 3 ] * frequency / ( sim_step - offset ) * 4) << endl;
+		ram.report();
+	}
+end;
+
+const char* print_binary(uint64 d, int size) {
+	string s = "";
+	for(int i=0; i<size; i++) {
+		s = ((d%2)?'1':'0')+s;
+		if(i%4 == 3) s = " "+s;
+		d >>= 1;
+	}
+	return s.c_str();
+}
+
+double one_cycle=1;
+void initialize() {
+	offset = total_steps/2; // 50% fast-forward
+	frequency = 2.5GHz;
+	one_cycle = 0.99999/frequency;
+}
+

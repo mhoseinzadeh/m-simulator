@@ -1,0 +1,30 @@
+
+**To set the highlighter
+
+	-Copy msim.lang into /usr/share/gtksourceview-x/language-specs/
+	-make sure that msim.lang is world-readable using the following command:
+
+		sudo chmod 644 /usr/share/gtksourceview-2.0/language-specs/msim.lang
+
+**To assign msim-c to gedit, follow through these instructions:
+	-Open gedit
+	-Go to menu Edit > Preferences
+	-On the Pligins tab, check External Tools, then press close
+	-Go to menu Tools > Manage External Tools...
+	-Create new tool and name it 'Compile'
+	-From the right side pane, set the Shortcut Key to F5
+	-In front of the Applicability field, select All documents and M-Simulator
+	-Insert following lines inside the text box on the top
+
+		#!/bin/sh
+		echo "Compiling..."
+		msim-c -auto -o msim -no-prog ${GEDIT_CURRENT_DOCUMENT_PATH}
+
+	-Add another tool and name it 'Run', with shortcut key F5, then insert following lines
+
+		#!/bin/sh
+		echo "Running..."
+		${GEDIT_CURRENT_DOCUMENT_DIR}/msim ~/checkpoints/parsec/parsec-ferret-large-4 100,000
+
+	-You can change the shell script as your own desire
+

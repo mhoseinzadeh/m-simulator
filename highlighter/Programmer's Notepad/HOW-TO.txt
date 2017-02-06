@@ -1,0 +1,27 @@
+%PN-DIR% refers to the installation path of Programer's Notepad
+
+
+**To set the highlighter
+
+	- Copy msim.scheme into directory %PN-DIR%\schemes
+
+**To assign .msim files to M-Simulator scheme, go to menu > Options, select Files from the leftside treeview, press Add button, type '.msim' in the field, and finally select M-Simulator from the drop down list.
+
+**To assign msim-c to the programmer's notepad, follow through theses steps:
+
+	-Open PN
+	-Go to menu Tools > Options
+	-From the treeview, select Tools
+	-On the rightside pane, select M-Simulator from the list
+	-Click on Add button
+	-Fill the form as follows:
+		-Name: Compile
+		-Command: <Select button ... and choose msim-c.exe>
+		-Folder: %d
+		-Parameters: -no-prog -auto "%d$(ProjectName).msim"
+		-Shortcut: F5
+		-Save: Project Group Files
+	-On the Console I/O tab, select "Look for a custom pattern"
+	-In the pattern field, insert front text: \* \"%f\" \(%l\)
+
+**You can also add another tool to run the simulation likewise, if you have already add the path of simics into the PATH environment variable
