@@ -6,7 +6,8 @@
 rm=/bin/rm -f
 CC= g++
 DEFS=  
-PROGNAME= ../bin/msim-c
+OUTPUTDIR= ../bin
+PROGNAME= $(OUTPUTDIR)/msim-c
 INCLUDES=  -I.
 LIBS=
 
@@ -25,6 +26,7 @@ OBJS = compile.o error.o evaluation.o exception.o fixedcodes.o functions.o main.
 all: $(PROGNAME)
 
 $(PROGNAME) : $(OBJS)
+	mkdir -p $(OUTPUTDIR)
 	$(CC) $(CFLAGS) -o $(PROGNAME) $(OBJS) $(LIBS)
 
 clean:

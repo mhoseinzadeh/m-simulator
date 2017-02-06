@@ -595,7 +595,7 @@ void generate_transaction_class(string& str) {
     str += "    V& operator[](const K& key) {\n";
     str += "        typename map <K, V> :: iterator it = this->find( key );\n";
     str += "        if ( it == this->end() ) {\n";
-    str += "             pair<typename map <K, V> :: iterator, bool> __i = insert(pair<K, V>(key, default_value));\n";
+    str += "             pair<typename map <K, V> :: iterator, bool> __i = this->insert(pair<K, V>(key, default_value));\n";
     str += "             (*this)[key] = default_value;\n";
     str += "            return __i.first->second;\n";
     str += "        } else {\n";
