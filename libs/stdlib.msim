@@ -158,7 +158,7 @@ sim transaction_t parse(string line)
     int size, val;
     transaction_t t;
 
-    in >> tp >> adr >> size;
+    in >> tp >> hex >> adr >> dec >> size;
     if(!strcmp(tp, "store")) {
         in >> hex >> val;
         t.type = ttDataWrite;
