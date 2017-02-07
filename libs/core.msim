@@ -2,14 +2,12 @@
 #define CORE
 
 #include "stdlib.msim"
-#include "main.msim"
 
 module typical_tlb:
 parameters
 	page_size = 2^13; // must be consistent with simics (13-bits)
 definitions
 	const p = log2(page_size);
-	typical_memory main;
 fields
 	field offset from 0 to p-1;
 	field page from p to end; 

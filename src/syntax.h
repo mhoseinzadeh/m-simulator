@@ -140,6 +140,7 @@ public:
 
 
 extern list<source_line>misc;
+extern list<source_line>sim;
 extern list<source_line> sourcecode;
 extern map<string, string> macros;
 

@@ -14,19 +14,21 @@ parameters
 	read_access_latency initially 121ns;
 	write_access_energy initially 2pJ;
 	read_access_energy initially 2pJ;
+	use_data initially false;
 definitions
 	_address memory_address;
-	uint32 number_of_page_replacements=0;
 	const b = log2(words_per_block);
 	const p = log2(blocks_per_page);
 	const k = log2(pages_per_bank);
 architecture
 	record bank[inf]
-		record page[pages_per_bank]
-			record line[blocks_per_page]
-				_data word[words_per_block];
+		whenever(use_data) {
+			record page[pages_per_bank]
+				record line[blocks_per_page]
+					_data word[words_per_block];
+				end;
 			end;
-		end;
+		}
 		double write_waiting_time=0;
 	end;
 	record TLB[inf]
@@ -47,12 +49,14 @@ implementation
 		return true;
 	}
 	
-	block swap_pages(uint32 src, uint32 dst) {
-		int src_bank = src >> $p;
-		int dst_bank = dst >> $p;
-		bank_t::bank_page_t  tmp = bank[src_bank].page[src];
-		bank[src_bank].page[src] = bank[dst_bank].page[dst];
-		bank[dst_bank].page[dst] = tmp;
+	whenever(use_data) {
+		block swap_pages(uint32 src, uint32 dst) {
+			int src_bank = src >> $p;
+			int dst_bank = dst >> $p;
+			bank_t::bank_page_t  tmp = bank[src_bank].page[src];
+			bank[src_bank].page[src] = bank[dst_bank].page[dst];
+			bank[dst_bank].page[dst] = tmp;
+		}
 	}
 	
 	block wait_for_resource(_address addr): double {
@@ -80,9 +84,12 @@ implementation
 		//print_block(addr);
 		addr = memory_address;
 		trace("Memory read access at %llX", addr);
-		uint16 start = addr@word;
-		for (uint32 i = 0; i < size; i++) {
-			dst_block[i] = bank[addr@bank].page[addr@page].line[addr@block].word[start+i];
+		
+		whenever(use_data) {
+			uint16 start = addr@word;
+			for (uint32 i = 0; i < size; i++) {
+				dst_block[i] = bank[addr@bank].page[addr@page].line[addr@block].word[start+i];
+			}
 		}
 		//print_block(addr);
 	}
@@ -94,13 +101,18 @@ implementation
 		trace("memory write access at %llX", addr);
 		if(sim_step >= offset) 
 			evaluate_waiting_time(addr, wait_for_resource(addr)+write_access_latency);
-		uint16 start = addr@word;
-		for (uint32 i = 0; i < size; i++) {
-			bank[addr@bank].page[addr@page].line[addr@block].word[start+i] = src_block[i];
+		
+		whenever(use_data) {
+			uint16 start = addr@word;
+			for (uint32 i = 0; i < size; i++) {
+				bank[addr@bank].page[addr@page].line[addr@block].word[start+i] = src_block[i];
+			}
 		}
 	}
-	block set_data(_address addr, _data d) {
-		bank[addr@bank].page[addr@page].line[addr@block].word[addr@word] = d;
+	block set_data(_address addr, _data d) {		
+		whenever(use_data) {
+			bank[addr@bank].page[addr@page].line[addr@block].word[addr@word] = d;
+		}
 	}
 	block block_address(_address addr): _address {
 		return addr >> $b;
@@ -111,16 +123,19 @@ implementation
 		int w_idx = addr@word;
 		uint64 b_idx=addr@bank, p_idx=addr@page, l_idx=addr@block;
 		printf("%s at v:0x%llx p:0x%llx (bank: %lld, page: %lld, block: %lld)", name, vaddr, addr, b_idx, p_idx, l_idx);
-		addr = (addr >> $b) << $b;
-		for(int i=0; i<words_per_block; i++) {
-			if(i%2==0) cout << " ";
-			if(i%16==0) printf("\n0x%.010llx  ", addr+i);
-			#ifndef __WIN32__
-			if(i == w_idx)
-				printf("\033[1;32m%.02x\033[0;m", (bank[b_idx].page[p_idx].line[l_idx].word[i]));
-			else
-			#endif
-				printf("%.02x", (bank[b_idx].page[p_idx].line[l_idx].word[i]));
+
+		whenever(use_data) {
+			addr = (addr >> $b) << $b;
+			for(int i=0; i<words_per_block; i++) {
+				if(i%2==0) cout << " ";
+				if(i%16==0) printf("\n0x%.010llx  ", addr+i);
+				#ifndef __WIN32__
+				if(i == w_idx)
+					printf("\033[1;32m%.02x\033[0;m", (bank[b_idx].page[p_idx].line[l_idx].word[i]));
+				else
+				#endif
+					printf("%.02x", (bank[b_idx].page[p_idx].line[l_idx].word[i]));
+			}
 		}
 		cout << endl;
 	}

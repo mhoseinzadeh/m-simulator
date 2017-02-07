@@ -604,6 +604,19 @@ void generate_miscs() {
     }
 }
 
+void generate_sims() {
+    for (list<source_line>::iterator it = sim.begin(); it != sim.end(); it++)
+    {
+        if (it->str == " function ") {
+            it++;
+            node* fn = get_global_functions(it->str);
+            if(fn->name != "initialize")
+                generate_function(fn);
+        } else
+            source.push_back(*(it));
+    }
+}
+
 void initial_parameter(node* module, node* param, bool initial) {
     //Update a parameter or a constant to its initial/final value
     string size_str = evaluate_expression_result(module, param->children[1]);
@@ -3123,6 +3136,8 @@ void generate_c_code() {
     //    cout << "generate initialize modules function" << endl;
     generate_initialize_modules_function();
     generate_top_level_step_function();
+    //    cout << "generate sims" << endl;
+    generate_sims();
 }
 
 bool link_cpp_objects = true;

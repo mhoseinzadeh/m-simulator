@@ -325,6 +325,7 @@
                     <keyword>signed</keyword>
                     <keyword>size_t</keyword>
                     <keyword>unsigned</keyword>
+                    <keyword>sim</keyword>
                     <keyword>void</keyword>
                     <keyword>bool</keyword>
                     <keyword>explicit</keyword>

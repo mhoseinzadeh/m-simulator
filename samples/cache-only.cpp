@@ -31,6 +31,15 @@
 #include <termios.h>
 #include <stdio.h>
 
+#define SHOW_PROGRESS
+#define USE_VIRTUAL_ADDRESS
+#define CAPTURE_AT_ONCE 0
+#define CAPTURE_FROM_FILE 1
+#define CAPTURE_FROM_PIPE 2
+#define CAPTURE_MEMORY_TYPE CAPTURE_AT_ONCE
+#define INSTRUCTION_QUEUE_SIZE 10
+#define MAX_DATA_BLOCKS 9
+
 static struct termios __old_termios, __new_termios;
 
 void initTermios(int echo) {
@@ -246,109 +255,6 @@ void add_unavailable_timeslot(att_entry_t* att, _address block_address, double e
 }
 
 void print_meaningful_section(transaction_t t, const char* buf, bool new_line=true);
-int digit(char c) {
-    if(c>='0'&&c<='9') return c-'0';
-    if(c>='a'&&c<='f') return 10+c-'a';
-    return -1;
-}
-
-uint64 ullabs(long long val) {
-    if(val < 0)
-        return -val;
-    return val;
-}
-
-inline uint64 hex2dec(string str) {
-    uint64 res=0;
-    if(str.length()==0)
-        return 0;
-    int i=0;
-    while((str[i] == '0' || str[i] == 'x') && (i < str.length())) i++;
-    for(; digit(str[i])>-1; i++)
-         res = res*16+digit(str[i]);
-    return res;
-}
-
-inline uint64 str2dec(string str) {
-    uint64 res=0;
-    if(str.length()==0)
-        return 0;
-    for(int i=0; digit(str[i])>-1; i++)
-        res = res*10+digit(str[i]);
-    return res;
-}
-
-void extract_transaction_data(string &str, transaction_t &t) {
-    std::size_t c_start = str.find("CPU");
-    if (c_start!=std::string::npos) {
-        c_start += 3;
-        std::size_t c_end = str.find("<", c_start+1);
-        char cpu_b[20] = {0};
-        str.copy(cpu_b, c_end-c_start, c_start);
-        t.cpu_num = strtol(cpu_b, NULL, 0);
-    }
-    std::size_t v_start = str.find("<v:");
-    if (v_start!=std::string::npos) {
-        v_start += 3;
-        std::size_t v_end = str.find(">", v_start+1);
-        char v_addr_b[20] = {0};
-        str.copy(v_addr_b, v_end-v_start, v_start);
-        t.virtual_address = strtoull(v_addr_b, NULL, 0);
-    }
-    std::size_t p_start = str.find("<p:");
-    if (p_start!=std::string::npos) {
-        p_start += 3;
-        std::size_t p_end = str.find(">", p_start+1);
-        char p_addr_b[20] = {0};
-        str.copy(p_addr_b, p_end-p_start, p_start);
-        t.physical_address = strtoull(p_addr_b, NULL, 0);
-    }
-}
-
-void extract_tlb_transaction_data(string &str, transaction_t &t)
-{
-    char buff[64];
-    str.copy(buff, 57, 54);
-    istringstream iss(buff);
-    uint64 v=0, p=0;
-    int token_num = 0;
-    do {
-        token_num++;
-        string sub;
-        iss >> sub;
-        if(token_num < 6 && token_num > 1) {
-            v = (v<<16) + strtoull(sub.c_str(), NULL, 16);
-        } else if(token_num > 9 && token_num < 14) {
-            p = (p<<16) + strtoull(sub.c_str(), NULL, 16);
-        }
-    } while (iss);
-    t.virtual_address = v;
-    t.physical_address = p;
-}
-
-int __last_transaction_cpu_num=0;
-transaction_t parse(string line)
-{
-    istream in(line);
-    char tp[6];
-    uint64 adr;
-    int size, val;
-    transaction_t t;
-
-    in >> tp >> adr >> size;
-    if(!strcmp(tp, "store")) {
-        in >> hex >> val;
-        t.type = ttDataWrite;
-    } else {
-        t.type = ttDataRead;
-    }
-    t.cpu_num = 0;
-    t.size = (unsigned char) size;
-    t.physical_address = adr;
-    t.virtual_address = adr;
-
-    return t;
-}
 void __remove_char(char* str, char ch) {
     for(int i=0; str[i]; i++)
         if(str[i] == ch) {
@@ -427,6 +333,7 @@ char* __show_elapsed_time(time_t starting_time, bool show_remaining = true, char
 }
 
 
+#define CACHES_H
 #define STDLIB
 char * display_number ( double d , const char * unit ) {
     char * str = new char [ 128 ];
@@ -468,7 +375,6 @@ char * display_number ( double d , const char * unit ) {
     sprintf ( str , "%.3f %c%s" , d , dim , unit );
     return str;
 }
-#define CACHES_H
 #define DIRECTORY_H
 #define MODIFIED  4
 #define OWNED     3
@@ -496,7 +402,6 @@ uint64 classes [ 4 ] = {
 ;
 double one_cycle = 1;
 void initialize ( ) {
-    offset = total_steps / 2;
     frequency = 2500000000;
     one_cycle = 0.99999 / frequency;
 }
@@ -921,7 +826,7 @@ class system_t : public typical_system {
             } set_line_t;
             set_line_t line[4];
         } set_t;
-        set_t set[256];
+        set_t set[2048];
         uint64 read_hit;
         uint64 write_hit;
         uint64 read_miss;
@@ -935,7 +840,7 @@ class system_t : public typical_system {
             cache_index = -1;
             block_index = 0;
             evictions = 0;
-            for(long __r1 = 0; __r1 < 256; __r1++) {
+            for(long __r1 = 0; __r1 < 2048; __r1++) {
                 for(long __r2 = 0; __r2 < 4; __r2++) {
                     set[__r1].line[__r2].tag = 0;
                     set[__r1].line[__r2].valid = 0;
@@ -959,7 +864,7 @@ class system_t : public typical_system {
         }
         bool lookup ( _address addr ) {
             for ( int i = 0;  i < 4;  i ++ ) {
-                if ( ( ((addr >> 14)) == set [ ((addr >> 6) & 0xff) ] . line [ i ] . tag ) && ( set [ ((addr >> 6) & 0xff) ] . line [ i ] . valid ) ) {
+                if ( ( ((addr >> 17)) == set [ ((addr >> 6) & 0x7ff) ] . line [ i ] . tag ) && ( set [ ((addr >> 6) & 0x7ff) ] . line [ i ] . valid ) ) {
                     block_index = i;
                     {} 
                     return true;
@@ -971,15 +876,15 @@ class system_t : public typical_system {
         int search ( _address & addr ) {
             int index = -1;
             for ( int j = 0;  j < 4;  j ++ ) {
-                if ( ! set [ ((addr >> 6) & 0xff) ] . line [ j ] . valid ) {
+                if ( ! set [ ((addr >> 6) & 0x7ff) ] . line [ j ] . valid ) {
                     return j;
                 }
             }
             uint32 max = 0;
             for ( int j = 0;  j < 4;  j ++ ) {
-                if ( set [ ((addr >> 6) & 0xff) ] . line [ j ] . counter > max ) {
+                if ( set [ ((addr >> 6) & 0x7ff) ] . line [ j ] . counter > max ) {
                     index = j;
-                    max = set [ ((addr >> 6) & 0xff) ] . line [ j ] . counter;
+                    max = set [ ((addr >> 6) & 0x7ff) ] . line [ j ] . counter;
                 }
             }
             if ( index == -1 ) {
@@ -989,7 +894,7 @@ class system_t : public typical_system {
         }
         void evict ( int set_idx , int block_idx ) {
             {} 
-            _address a = ( set_idx << ( 6 ) ) | ( set [ set_idx ] . line [ block_idx ] . tag << ( 8 + 6 ) );
+            _address a = ( set_idx << ( 6 ) ) | ( set [ set_idx ] . line [ block_idx ] . tag << ( 11 + 6 ) );
             if ( sim_step >= offset ) evictions ++;
             prev_level -> write_block ( a , 0 , 64 );
         }
@@ -997,15 +902,15 @@ class system_t : public typical_system {
             _data temp [ 64 ];
             prev_level -> read_block ( addr , temp , 64 );
             write_block ( addr , temp , 64 );
-            set [ ((addr >> 6) & 0xff) ] . line [ block_idx ] . dirty = false;
+            set [ ((addr >> 6) & 0x7ff) ] . line [ block_idx ] . dirty = false;
         }
         void replace ( _address addr ) {
             block_index = search ( addr );
-            int set_idx = ((addr >> 6) & 0xff);
+            int set_idx = ((addr >> 6) & 0x7ff);
             addr = ( addr >> 6 ) << 6;
             if ( set [ set_idx ] . line [ block_index ] . dirty && set [ set_idx ] . line [ block_index ] . valid )
             evict ( set_idx , block_index );
-            set [ set_idx ] . line [ block_index ] . tag = ((addr >> 14));
+            set [ set_idx ] . line [ block_index ] . tag = ((addr >> 17));
             set [ set_idx ] . line [ block_index ] . valid = true;
             set [ set_idx ] . line [ block_index ] . counter = 0;
             set [ set_idx ] . line [ block_index ] . dirty = false;
@@ -1044,7 +949,7 @@ class system_t : public typical_system {
                 energy += 1e-11;
             }
             {} 
-            int set_idx = ((addr >> 6) & 0xff);
+            int set_idx = ((addr >> 6) & 0x7ff);
             for ( int k = 0;  k < 4;  k ++ ) {
                 set [ set_idx ] . line [ k ] . counter ++;
             }
@@ -1101,7 +1006,7 @@ class system_t : public typical_system {
                 energy += 1e-11;
             }
             {} 
-            int set_idx = ((addr >> 6) & 0xff);
+            int set_idx = ((addr >> 6) & 0x7ff);
             for ( int k = 0;  k < 4;  k ++ ) {
                 set [ set_idx ] . line [ k ] . counter ++;
             }
@@ -1149,7 +1054,7 @@ class system_t : public typical_system {
             int w_idx = ((addr) & 0x3f);
             _address aaa = addr;
             addr = ( addr >> 6 ) << 6;
-            uint32 s_idx = ((addr >> 6) & 0xff) , b_idx = block_index;
+            uint32 s_idx = ((addr >> 6) & 0x7ff) , b_idx = block_index;
             printf ( "%s at 0x%llx (set: %ld, block: %ld)" , name , addr , s_idx , b_idx );
             cout << endl;
         }
@@ -1283,6 +1188,212 @@ void __initialize_modules() {
 void __top_level_step() {
     top_level_module->__step();
 }
+inline int digit ( char c ) {
+    if ( c >= '0' && c <= '9' ) return c - '0';
+    if ( c >= 'a' && c <= 'f' ) return 10 + c - 'a';
+    return - 1;
+}
+inline uint64 ullabs ( long long val ) {
+    if ( val < 0 )
+    return - val;
+    return val;
+}
+inline uint64 hex2dec ( string str ) {
+    uint64 res = 0;
+    if ( str . length ( ) == 0 )
+    return 0;
+    int i = 0;
+    while ( ( str [ i ] == '0' || str [ i ] == 'x' ) && ( i < str . length ( ) ) ) i ++;
+    for (;  digit ( str [ i ] ) > -1;  i ++ )
+    res = res * 16 + digit ( str [ i ] );
+    return res;
+}
+inline uint64 str2dec ( string str ) {
+    uint64 res = 0;
+    if ( str . length ( ) == 0 )
+    return 0;
+    for ( int i = 0;  digit ( str [ i ] ) > -1;  i ++ )
+    res = res * 10 + digit ( str [ i ] );
+    return res;
+}
+void extract_transaction_data ( string & str , transaction_t & t ) {
+    std :: size_t c_start = str . find ( "CPU" );
+    if ( c_start != std :: string :: npos ) {
+        c_start += 3;
+        std :: size_t c_end = str . find ( "<" , c_start + 1 );
+        char cpu_b [ 20 ] = {
+            0
+        }
+        ;
+        str . copy ( cpu_b , c_end - c_start , c_start );
+        t . cpu_num = strtol ( cpu_b , NULL , 0 );
+    }
+    std :: size_t v_start = str . find ( "<v:" );
+    if ( v_start != std :: string :: npos ) {
+        v_start += 3;
+        std :: size_t v_end = str . find ( ">" , v_start + 1 );
+        char v_addr_b [ 20 ] = {
+            0
+        }
+        ;
+        str . copy ( v_addr_b , v_end - v_start , v_start );
+        t . virtual_address = strtoull ( v_addr_b , NULL , 0 );
+    }
+    std :: size_t p_start = str . find ( "<p:" );
+    if ( p_start != std :: string :: npos ) {
+        p_start += 3;
+        std :: size_t p_end = str . find ( ">" , p_start + 1 );
+        char p_addr_b [ 20 ] = {
+            0
+        }
+        ;
+        str . copy ( p_addr_b , p_end - p_start , p_start );
+        t . physical_address = strtoull ( p_addr_b , NULL , 0 );
+    }
+}
+void extract_tlb_transaction_data ( string & str , transaction_t & t ) {
+    char buff [ 64 ];
+    str . copy ( buff , 57 , 54 );
+    istringstream iss ( buff );
+    uint64 v = 0 , p = 0;
+    int token_num = 0;
+    do {
+        token_num ++;
+        string sub;
+        iss >> sub;
+        if ( token_num < 6 && token_num > 1 ) {
+            v = ( v << 16 ) + strtoull ( sub . c_str ( ) , NULL , 16 );
+        } else if ( token_num > 9 && token_num < 14 ) {
+            p = ( p << 16 ) + strtoull ( sub . c_str ( ) , NULL , 16 );
+        }
+    }
+    while ( iss );
+    t . virtual_address = v;
+    t . physical_address = p;
+}
+int __last_transaction_cpu_num = 0;
+transaction_t parse ( string line ) {
+    stringstream in ( line );
+    char tp [ 6 ];
+    uint64 adr;
+    int size , val;
+    transaction_t t;
+    in >> tp >> adr >> size;
+    if ( ! strcmp ( tp , "store" ) ) {
+        in >> hex >> val;
+        t . type = ttDataWrite;
+    } else {
+        t . type = ttDataRead;
+    }
+    t . cpu_num = 0;
+    t . size = ( unsigned char ) size;
+    t . physical_address = adr;
+    t . virtual_address = adr;
+    return t;
+}
+void pump ( message_t inst ) {
+    if ( ( int ) inst . type == itNone )
+    inst . type = itALU;
+    cpu_number = inst . data [ 0 ] . cpu_num;
+    cpu_message [ cpu_number ] = inst;
+    top_level_module -> pump ( inst );
+}
+void execute ( transaction_t t ) {
+    #if CAPTURE_MEMORY_TYPE == CAPTURE_FROM_FILE
+    __load_memory_content ( t . physical_address );
+    #endif
+    rrqueue_t < message_t , INSTRUCTION_QUEUE_SIZE > * q = & instructions [ t . cpu_num ];
+    if ( ! q -> empty ( ) ) {
+        if ( t . type == ttInstFetch ) {
+            #ifdef USE_VIRTUAL_ADDRESS
+            if ( ullabs ( ( int64 ) q -> last ( ) . data [ 0 ] . virtual_address - ( int64 ) t . virtual_address ) > q -> last ( ) . size )
+            #else
+            if ( ullabs ( ( int64 ) q -> last ( ) . data [ 0 ] . physical_address - ( int64 ) t . physical_address ) > q -> last ( ) . size )
+            #endif
+             {
+                q -> last ( ) . type = ( message_type_t ) ( ( int ) q -> last ( ) . type | itBranch );
+                #ifdef USE_VIRTUAL_ADDRESS
+                q -> last ( ) . target_address = t . virtual_address;
+                #else
+                q -> last ( ) . target_address = t . physical_address;
+                #endif
+            }
+            q -> last ( ) . ready = true;
+        } else if ( t . type == ttDataRead ) {
+            uint16 s = q -> last ( ) . data_count;
+            if ( s > MAX_DATA_BLOCKS - 1 ) {
+                cerr << "*OVERFLOW* in data transaction size at step " << sim_step << endl;
+                throw 36;
+            }
+            q -> last ( ) . type = ( message_type_t ) ( ( int ) q -> last ( ) . type | itLoad );
+            q -> last ( ) . data [ s ] = t;
+            q -> last ( ) . size += t . size;
+            q -> last ( ) . data_count ++;
+            #if defined ( STEP ) || defined ( VERBOSE ) || defined ( ALLOW_EXCEPTIONS )
+            q -> last ( ) . __data_inst_string [ s ] = __transaction_string;
+            #endif
+        } else if ( t . type == ttDataWrite ) {
+            uint16 s = q -> last ( ) . data_count;
+            if ( s > MAX_DATA_BLOCKS - 1 ) {
+                cerr << "*OVERFLOW* in data transaction size at step " << sim_step << endl;
+                throw 36;
+            }
+            q -> last ( ) . type = ( message_type_t ) ( ( int ) q -> last ( ) . type | itStore );
+            q -> last ( ) . data [ s ] = t;
+            q -> last ( ) . size += t . size;
+            q -> last ( ) . data_count ++;
+            #if defined ( STEP ) || defined ( VERBOSE ) || defined ( ALLOW_EXCEPTIONS )
+            q -> last ( ) . __data_inst_string [ s ] = __transaction_string;
+            #endif
+        } else if ( t . type == ttAddToTLB || t . type == ttRemoveFromTLB ) {
+            uint8 s = q -> last ( ) . tlb_size;
+            q -> last ( ) . tlb [ s ] = t;
+            q -> last ( ) . tlb_size ++;
+            #if defined ( STEP ) || defined ( VERBOSE ) || defined ( ALLOW_EXCEPTIONS )
+            q -> last ( ) . __data_inst_string [ s ] = __transaction_string;
+            #endif
+        } else if ( t . type == ttException ) {
+            q -> last ( ) . ready = true;
+            #if defined ( STEP ) || defined ( ALLOW_EXCEPTIONS )
+            static bool ignore_all_exceptions = false;
+            if ( ! ignore_all_exceptions ) {
+                print_meaningful_section ( q -> last ( ) . data [ 0 ] , q -> last ( ) . __inst_inst_string . c_str ( ) );
+                cerr << "*EXCEPTION* " << t . exp_code << " raised: " << t . exp_str . c_str ( ) << endl;
+                cerr << "Press [ESC] to terminate, [i] to ignore, or any other keys to continue..." << endl;
+                char ch = getch ( );
+                if ( ch == 27 ) {
+                    simulation_finished = true;
+                    throw 37;
+                } else if ( ch == 'i' )
+                ignore_all_exceptions = true;
+            }
+            #endif
+        }
+    }
+    if ( t . type == ttInstFetch ) {
+        message_t inst;
+        inst . ready = false;
+        inst . type = itNone;
+        inst . data_count = 1;
+        inst . data [ 0 ] . type = ttNone;
+        inst . data [ 0 ] = t;
+        inst . size = t . size;
+        inst . tlb_size = 0;
+        #if defined ( STEP ) || defined ( VERBOSE ) || defined ( ALLOW_EXCEPTIONS )
+        inst . __inst_inst_string = __transaction_string;
+        #endif
+        q -> push_back ( inst );
+        if ( q -> first ( ) . ready )
+        pump ( q -> pop_front ( ) );
+    }
+}
+void process ( string buffer ) {
+    transaction_t __trans = parse ( buffer );
+    transaction_t t = __trans;
+    t . type = ttInstFetch;
+    execute ( t );
+    execute ( __trans );
+}
 
 
 bool __successfull = false;
@@ -1291,65 +1402,6 @@ void print_report() {
     if(!__successfull) return;
     cout << "--------------------------------<< Reports >>----------------------------------" << endl;
     top_level_module->report();
-}
-
-void pump(message_t inst) {
-    if((int)inst.type == itNone)
-        inst.type = itALU;
-    cpu_number = inst.data[0].cpu_num;
-    cpu_message[cpu_number] = inst;
-    top_level_module->pump(inst);
-}
-
-void execute(transaction_t t) {
-    rrqueue_t<message_t, 10> *q = &instructions[t.cpu_num];
-    if(!q->empty()) {
-        if(t.type == ttInstFetch) {
-            if(ullabs((int64)q->last().data[0].virtual_address-(int64)t.virtual_address) > q->last().size) {
-                q->last().type = (message_type_t)((int)q->last().type | itBranch);
-                q->last().target_address = t.virtual_address;
-            } 
-            q->last().ready = true;
-        } else if(t.type == ttDataRead) {
-            uint16 s = q->last().data_count;
-            if(s>8) { cerr << "*OVERFLOW* in data transaction size at step " << sim_step << endl; throw 36;}
-            q->last().type = (message_type_t)((int)q->last().type | itLoad);
-            q->last().data[s] = t;
-            q->last().size += t.size;
-            q->last().data_count++;
-        } else if(t.type == ttDataWrite) {
-            uint16 s = q->last().data_count;
-            if(s>8) { cerr << "*OVERFLOW* in data transaction size at step " << sim_step << endl; throw 36;}
-            q->last().type = (message_type_t)((int)q->last().type | itStore);
-            q->last().data[s] = t;
-            q->last().size += t.size;
-            q->last().data_count++;
-        } else if(t.type == ttAddToTLB || t.type == ttRemoveFromTLB) {
-            uint8 s = q->last().tlb_size;
-            q->last().tlb[s] = t;
-            q->last().tlb_size ++;
-        } else if(t.type == ttException) {
-            q->last().ready = true;
-        }
-    }
-    if(t.type == ttInstFetch) {
-        message_t inst;
-        inst.ready = false;
-        inst.type = itNone;
-        inst.data_count = 1;
-        inst.data[0].type = ttNone;
-        inst.data[0] = t;
-        inst.size = t.size;
-        inst.tlb_size = 0;
-        q->push_back(inst);
-        if(q->first().ready)
-            pump(q->pop_front());
-    }
-}
-
-void process(string buffer) {
-        transaction_t __trans = parse(buffer);
-        execute(__trans);
 }
 
 stringstream __sig_message;

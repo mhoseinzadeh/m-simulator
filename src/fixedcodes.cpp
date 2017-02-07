@@ -76,6 +76,36 @@ void generate_transaction_class(string& str) {
     str += "#include <termios.h>\n";
     str += "#include <stdio.h>\n";
     str += "\n";
+
+    if(!macros["STEP"].empty())
+        str += "#define STEP\n";
+    if(!macros["VERBOSE"].empty())
+        str += "#define VERBOSE\n";
+    if(automatic_simulation)
+        str += "#define AUTOMATIC_SIMULATION\n";
+    if(allow_exceptions)
+        str += "#define ALLOW_EXCEPTIONS\n";
+    if(show_progress)
+        str += "#define SHOW_PROGRESS\n";
+    if(use_virtual_address)
+        str += "#define USE_VIRTUAL_ADDRESS\n";
+    str += "#define CAPTURE_AT_ONCE 0\n";
+    str += "#define CAPTURE_FROM_FILE 1\n";
+    str += "#define CAPTURE_FROM_PIPE 2\n";
+    str += "#define CAPTURE_MEMORY_TYPE ";
+    switch(capture_memory_type) {
+        case CAPTURE_AT_ONCE: str += "CAPTURE_AT_ONCE\n"; break;
+        case CAPTURE_FROM_FILE: str += "CAPTURE_FROM_FILE\n"; break;
+        case CAPTURE_FROM_PIPE: str += "CAPTURE_FROM_PIPE\n"; break;
+    }
+    str += "#define INSTRUCTION_QUEUE_SIZE ";
+    str += itoa(instruction_queue_size);
+    str += "\n";
+    str += "#define MAX_DATA_BLOCKS ";
+    str += itoa(max_data_blocks);
+    str += "\n";
+
+    str += "\n";
     str += "static struct termios __old_termios, __new_termios;\n";
     str += "\n";
     str += "void initTermios(int echo) {\n";
@@ -331,7 +361,8 @@ void generate_transaction_class(string& str) {
     if(automatic_simulation)
         str += "void __load_memory_content(uint64 addr, uint64 last_addr=0);\n";
     str += "void print_meaningful_section(transaction_t t, const char* buf, bool new_line=true);\n";
-    str += "int digit(char c) {\n";
+
+/*    str += "int digit(char c) {\n";
     str += "    if(c>='0'&&c<='9') return c-'0';\n";
     str += "    if(c>='a'&&c<='f') return 10+c-'a';\n";
     str += "    return -1;\n";
@@ -469,7 +500,7 @@ void generate_transaction_class(string& str) {
     str += "    return t;\n";
     str += "}\n";
 
-
+*/
 
     /*
     str += "transaction_t parse(string line)\n";
@@ -1392,101 +1423,6 @@ void generate_footer_codes(string& str) {
         str += "}\n";
     }
 
-    str += "void pump(message_t inst) {\n";
-    str += "    if((int)inst.type == itNone)\n";
-    str += "        inst.type = itALU;\n";
-    str += "    cpu_number = inst.data[0].cpu_num;\n";
-    str += "    cpu_message[cpu_number] = inst;\n";
-    str += "    top_level_module->pump(inst);\n";
-    str += "}\n\n";
-    str += "void execute(transaction_t t) {\n";
-    if(capture_memory_type == CAPTURE_FROM_FILE) {
-        str += "    __load_memory_content(t.physical_address);\n";
-    }
-    str += "    rrqueue_t<message_t, ";
-    str += itoa(instruction_queue_size);
-    str += "> *q = &instructions[t.cpu_num];\n";
-    str += "    if(!q->empty()) {\n";
-    str += "        if(t.type == ttInstFetch) {\n";
-    if(use_virtual_address)
-        str += "            if(ullabs((int64)q->last().data[0].virtual_address-(int64)t.virtual_address) > q->last().size) {\n";
-    else
-        str += "            if(ullabs((int64)q->last().data[0].physical_address-(int64)t.physical_address) > q->last().size) {\n";
-    str += "                q->last().type = (message_type_t)((int)q->last().type | itBranch);\n";
-    if(use_virtual_address)
-        str += "                q->last().target_address = t.virtual_address;\n";
-    else
-        str += "                q->last().target_address = t.physical_address;\n";
-    str += "            } \n";
-    str += "            q->last().ready = true;\n";
-    str += "        } else if(t.type == ttDataRead) {\n";
-    str += "            uint16 s = q->last().data_count;\n";
-    str += "            if(s>";
-    str += itoa(max_data_blocks-1);
-    str += ") { cerr << \"*OVERFLOW* in data transaction size at step \" << sim_step << endl; throw 36;}\n";
-    str += "            q->last().type = (message_type_t)((int)q->last().type | itLoad);\n";
-    str += "            q->last().data[s] = t;\n";
-    str += "            q->last().size += t.size;\n";
-    str += "            q->last().data_count++;\n";
-    if(!macros["STEP"].empty() || !macros["VERBOSE"].empty() || allow_exceptions)
-        str += "            q->last().__data_inst_string[s] = __transaction_string;\n";
-    str += "        } else if(t.type == ttDataWrite) {\n";
-    str += "            uint16 s = q->last().data_count;\n";
-    str += "            if(s>";
-    str += itoa(max_data_blocks-1);
-    str += ") { cerr << \"*OVERFLOW* in data transaction size at step \" << sim_step << endl; throw 36;}\n";
-    str += "            q->last().type = (message_type_t)((int)q->last().type | itStore);\n";
-    str += "            q->last().data[s] = t;\n";
-    str += "            q->last().size += t.size;\n";
-    str += "            q->last().data_count++;\n";
-    if(!macros["STEP"].empty() || !macros["VERBOSE"].empty() || allow_exceptions)
-        str += "            q->last().__data_inst_string[s] = __transaction_string;\n";
-
-
-    str += "        } else if(t.type == ttAddToTLB || t.type == ttRemoveFromTLB) {\n";
-    str += "            uint8 s = q->last().tlb_size;\n";
-    str += "            q->last().tlb[s] = t;\n";
-    str += "            q->last().tlb_size ++;\n";
-    if(!macros["STEP"].empty() || !macros["VERBOSE"].empty() || allow_exceptions)
-        str += "            q->last().__data_inst_string[s] = __transaction_string;\n";
-
-    str += "        } else if(t.type == ttException) {\n";
-    str += "            q->last().ready = true;\n";
-    if(!macros["STEP"].empty() || allow_exceptions) {
-        str += "            static bool ignore_all_exceptions=false;\n";
-        str += "            if(!ignore_all_exceptions) {\n";
-        str += "                print_meaningful_section(q->last().data[0], q->last().__inst_inst_string.c_str());\n";
-        str += "                cerr << \"*EXCEPTION* \" << t.exp_code << \" raised: \" << t.exp_str.c_str() << endl;\n";
-        str += "                cerr << \"Press [ESC] to terminate, [i] to ignore, or any other keys to continue...\" << endl;\n";
-        str += "                char ch = getch();\n";
-        str += "                if(ch==27) {\n";
-        str += "                    simulation_finished = true;\n";
-        str += "                    throw 37;\n";
-        str += "                } else if(ch=='i')\n";
-        str += "                    ignore_all_exceptions=true;\n";
-        str += "            }\n";
-    }
-    str += "        }\n";
-    str += "    }\n";
-    str += "    if(t.type == ttInstFetch) {\n";
-    //if(multithreaded)
-    //str += "        while(q->full());\n";
-    str += "        message_t inst;\n";
-    str += "        inst.ready = false;\n";
-    str += "        inst.type = itNone;\n";
-    str += "        inst.data_count = 1;\n";
-    str += "        inst.data[0].type = ttNone;\n";
-    str += "        inst.data[0] = t;\n";
-    str += "        inst.size = t.size;\n";
-    str += "        inst.tlb_size = 0;\n";
-    if(!macros["STEP"].empty() || !macros["VERBOSE"].empty() || allow_exceptions)
-        str += "        inst.__inst_inst_string = __transaction_string;\n";
-    str += "        q->push_back(inst);\n";
-    str += "        if(q->first().ready)\n";
-    str += "            pump(q->pop_front());\n";
-    str += "    }\n";
-    str += "}\n\n";
-
 #if defined (__WIN32__)
     if(!automatic_simulation) {
         str += "void run(istream &in) {\n";
@@ -1523,19 +1459,6 @@ void generate_footer_codes(string& str) {
         str += "        __successfull = true;\n";
         str += "}\n\n";
     }
-#else
-    str += "void process(string buffer) {\n";
-    if(automatic_simulation) {
-        str += "    static bool simulation_started = false;\n";
-        str += "    if(simulation_started) {\n";
-    }
-    str += "        transaction_t __trans = parse(buffer);\n";
-    str += "        execute(__trans);\n";
-    if(automatic_simulation) {
-        str += "    } else if(buffer.substr(0, 16) == \"Tracing enabled.\")\n";
-        str += "        simulation_started = true;\n";
-    }
-    str += "}\n\n";
 #endif
     if(automatic_simulation) {
 

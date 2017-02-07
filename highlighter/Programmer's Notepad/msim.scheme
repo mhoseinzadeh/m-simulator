@@ -16,7 +16,7 @@
 		<keyword-class name="msim2">
 			typical_module typical_system int8 uint8 int16 uint16 int32 uint32 int64 uint64 
 			boolean bool string typical_core typical_node _address _data float byte int long
-			char float int long void bit
+			char float int long void bit sim
 		</keyword-class>
 		<keyword-class name="msim3">
 			main_memory transaction opcode 

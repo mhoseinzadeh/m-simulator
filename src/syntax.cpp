@@ -42,6 +42,7 @@
 #include <cmath>
 
 list<source_line> misc;
+list<source_line> sim;
 list<source_line> sourcecode;
 map<string, string> macros;
 
@@ -2910,12 +2911,17 @@ void parse(source_line& s, int& i, bool finishing) {
             next_line(s, i);
         } else {
             string lst = "";
+            bool isSim=false;
             while (w != "module" && w != "procedure" && w != "function" && w != "parameter" && w[0] != '#' && w != "") {
                 if (is_keyword(w) || w == "field" || w == "record")
                     throw exp_gen(etSyntaxError, s.line, s.filename, "Unexpected statement "OPENING_QUOTE"%s"CLOSING_QUOTE".", w.c_str());
+                if (w == "sim") { isSim=true; w = next(s.str, i); }
                 if (w == "{") {
                     int b = 1;
-                    misc.push_back(gen_line(s.line, s.filename, w));
+                    if(isSim) 
+                        sim.push_back(gen_line(s.line, s.filename, w));
+                    else
+                        misc.push_back(gen_line(s.line, s.filename, w));
                     while (b > 0) {
                         w = next(s, i);
                         if (w == "{")
@@ -2927,11 +2933,20 @@ void parse(source_line& s, int& i, bool finishing) {
                                 throw exp_gen(etSyntaxError, s.line, s.filename, "Missing statement "OPENING_QUOTE"}"CLOSING_QUOTE".");
                             }
                         }
-                        misc.push_back(gen_line(s.line, s.filename, w));
+                        if(isSim) 
+                            sim.push_back(gen_line(s.line, s.filename, w));
+                        else
+                            misc.push_back(gen_line(s.line, s.filename, w));
                         if(b==0) break;
                     }
-                } else
-                    misc.push_back(gen_line(s.line, s.filename, w));
+                    isSim=false;
+                } else {
+                    if(isSim) 
+                        sim.push_back(gen_line(s.line, s.filename, w));
+                    else
+                        misc.push_back(gen_line(s.line, s.filename, w));
+                    if(w==";") isSim=false;
+                }
                 lst = w;
                 w = next(s, i, false);
             }

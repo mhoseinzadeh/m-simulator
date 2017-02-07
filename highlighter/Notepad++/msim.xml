@@ -12,7 +12,7 @@
             <Keywords name="Operators">&apos; - ! &quot; $ % &amp; ( ) , . : ; ? [ \ ] ^ ` { | } ~ + &lt; = &gt;</Keywords>
             <Keywords name="Comment">1/* 2*/ 0//</Keywords>
             <Keywords name="Words1">offline stall slipp asm auto break case catch class const const_cast continue default delete do double dynamic_cast else enum explicit export extern false for friend goto if inline mutable namespace new operator private protected public register reinterpret_cast return short signed sizeof static static_cast struct switch template this throw true try typedef typeid typename union unsigned using virtual volatile wchar_t while and and_eq bitand bitor compl not not_eq or or_eq xor xor_eq module extends specifications parameters parameter definitions topology implementation pass is as submodule function procedure block end architecture merged fields field from initially disabled enabled when record inherit to whenever otherwise parallel serial</Keywords>
-            <Keywords name="Words2">typical_node typical_module typical_system int8 uint8 int16 uint16 int32 uint32 int64 uint64 boolean bool string typical_core _address _data float byte int long char float int long void bit</Keywords>
+            <Keywords name="Words2">typical_node typical_module typical_system int8 uint8 int16 uint16 int32 uint32 int64 uint64 boolean bool string typical_core _address _data float byte int long char float int long void bit sim</Keywords>
             <Keywords name="Words3">#</Keywords>
             <Keywords name="Words4"></Keywords>
         </KeywordLists>
