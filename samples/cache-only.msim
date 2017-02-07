@@ -1,0 +1,46 @@
+//#include "stdlib.msim"
+#include "caches.msim"
+#include "main.msim"
+#include "core.msim"
+
+#cinclude <fstream>
+
+double my_latency=0;
+double avg_latency=0;
+
+uint64 classes[4] = {0, 0, 0, 0};
+
+module system extends typical_system:
+definitions	
+	submodule Cache extends set_associative:	
+	specifications	
+		number_of_sets is 2048;
+		associativity is 4;
+		block_size is 64;
+		access_latency is 0;
+	end;
+
+	submodule Core extends typical_core:
+	definitions	
+		Cache cache;
+	pass all to cache when message.type & (itLoad | itStore);
+	end;
+
+	Core core;
+	main_memory ram;
+pass all to core;
+topology
+	core.cache.prev_level <- ram;
+
+implementation
+	block report() {
+		core.cache->report();
+	}
+end;
+
+double one_cycle=1;
+void initialize() {
+//	offset = total_steps/2; // 50% fast-forward
+	frequency = 2.5GHz;
+	one_cycle = 0.99999/frequency;
+}
