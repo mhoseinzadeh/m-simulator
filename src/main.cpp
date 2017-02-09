@@ -29,8 +29,8 @@
  *
  * Copyright (C) 20012-2013 HPCAN, http://hpcan.ce.sharif.edu
  *
- * @author 	Morteza Hoseinzadeh, <m.hoseinzadeh85@gmail.com>
- * @date	2012-05-03
+ * @author     Morteza Hoseinzadeh, <m.hoseinzadeh85@gmail.com>
+ * @date    2012-05-03
  */
 
 #ifndef QUOTE_CHARS
@@ -75,12 +75,12 @@ string exe_path;
 
 int main(int argc, char* argv[]) {
 
-	bool copyright=true;
+    bool copyright=true;
     for (int i=1; i<argc; i++) {
-		if(!strcmp(argv[i], "--version") || !strcmp(argv[i], "-v")) copyright=false;
-	}
+        if(!strcmp(argv[i], "--version") || !strcmp(argv[i], "-v")) copyright=false;
+    }
 
-	find_exe_path();
+    find_exe_path();
     printCopyRight(copyright);
     cpp_compiler_path = "g++";
     if(argc == 1) {
@@ -92,7 +92,7 @@ int main(int argc, char* argv[]) {
     char* f = process_args(argc, argv);
     add_default_directories();
     for(int i=0; i<paths_count; i++) {
-	    cout << include_paths[i] << endl;
+        cout << include_paths[i] << endl;
     }
     if(!f) return -1;
     string s = " ";
@@ -129,25 +129,25 @@ void printCopyRight(bool copyright)
     cout << "   | |\\  /| ||  http://hpcan.ce.sharif.edu " << endl;
     cout << "   |_|/\\/ |_|/\n    Simulator" << endl << endl;
     cout << "   http://m-sim.org ( contact@m-sim.org )" << endl;
-	if(copyright)
-		cout << "   Copyright (c) 2014 by HPCAN, Sharif University of Technology." << endl;
-	cout << endl;
+    if(copyright)
+        cout << "   Copyright (c) 2014 by HPCAN, Sharif University of Technology." << endl;
+    cout << endl;
 }
 
 void printLisence()
 {
     cout << " ------------------------------<< Lisence  Notes >>----------------------------" << endl;
 
-	string path = exe_path;
-	path += "/../LICENSE";
-	ifstream file(path.c_str());
+    string path = exe_path;
+    path += "/../LICENSE";
+    ifstream file(path.c_str());
     while (file.good()) {
         char line[1025];
         readline(file, line);
         cout << "  " << line << endl;
     }
     file.close();
-	                                                                           
+                                                                               
     cout << " -------------------------------<< Contributors >>----------------------------- " << endl;
     cout << "  Designed & Programmed by Morteza Hoseinzadeh (hoseinzadeh@hotmail.com) under " << endl;
     cout << "  supervision of prof. Hamid Sarbazi-Azad." << endl << endl;
@@ -197,7 +197,7 @@ void printUsage()
     cout << "                             file: load data upon request from craff files" << endl;
     cout << "                             pipe: get data from simics in run-time (disabled)" << endl;
     cout << "  --dump-size, -mds <size> Memory dump size (in kilobytes) to partial loading " << endl;
-	cout << "                             when -mc=file (default: 128 MB)." << endl;
+    cout << "                             when -mc=file (default: 128 MB)." << endl;
     cout << "  -auto                    Automatic simulating" << endl;
     cout << "                             This argument force the compiler to generate an" << endl;
     cout << "                             automatic simulator which gets a checkpoint file" << endl;
@@ -215,18 +215,19 @@ void printUsage()
     cout << "Options -h, --help, -v, and --version will prevent the progress of compiling." << endl;
 }
 
-const char* get_name(char* arg) {
-    string str = arg;
-    unsigned found = str.find_first_of("=");
-    return str.substr(0, found).c_str();
+const char* get_name(const char* arg) {
+    static string str(arg);
+    size_t found = str.find_first_of("=");
+    if(found!=string::npos) str = str.substr(0, found).c_str();
+    return str.c_str();
 }
 
 string get_value(int argc, char* argv[], int &i, const char* msg, ...) {
     char message[128];
     va_list args;
-	va_start(args, msg);
-	vsprintf(message, msg, args);
-	va_end(args);
+    va_start(args, msg);
+    vsprintf(message, msg, args);
+    va_end(args);
     string str = argv[i];
     int found = str.find("=");
     bool error = false;
@@ -252,8 +253,8 @@ char* process_args(int argc, char* argv[]) {
     string filename(""); 
     evaluate("true=1", 0, 0);
     evaluate("false=0", 0, 0);
-	bool dump_size_is_set=false;
-	bool compiler_directors_set = false;
+    bool dump_size_is_set=false;
+    bool compiler_directors_set = false;
     for (int i=1; i<argc; i++) {
         string name = get_name(argv[i]);
         if (compiler_directors_set) {
@@ -290,7 +291,7 @@ char* process_args(int argc, char* argv[]) {
             clog << "Output file: " << value.c_str() << endl;
         } else if(!strcmp(argv[i], "-O1") || !strcmp(argv[i], "-O2") || !strcmp(argv[i], "-O3") ||
                   !strcmp(argv[i], "-g") || !strcmp(argv[i], "-g1") || !strcmp(argv[i], "-g2") ||
-				  !strcmp(argv[i], "-g3") ||!strcmp(argv[i], "-pg")) {
+                  !strcmp(argv[i], "-g3") ||!strcmp(argv[i], "-pg")) {
             compile_options += argv[i];
             compile_options += " ";
         } else if(name == "-I") {
@@ -332,7 +333,7 @@ char* process_args(int argc, char* argv[]) {
             long num = atol(value.c_str());
             max_data_blocks = num+1;
         } else if(!strcmp(argv[i], "-c")) {
-            link_cpp_objects = false;			
+            link_cpp_objects = false;            
         } else if(!strcmp(argv[i], "--exceptions") || !strcmp(argv[i], "-e")) {
             allow_exceptions = true;
         } else if(!strcmp(argv[i], "--count-exceptions") || !strcmp(argv[i], "-ce")) {
@@ -356,24 +357,24 @@ char* process_args(int argc, char* argv[]) {
         } else if(!strcmp(argv[i], "-p") || !strcmp(argv[i], "--display-pipeline")) {
             macros["DISPLAY_PIPELINE"] = "1";
         } else if(!strcmp(argv[i], "-mc")) {
-			if (argc == i) {
+            if (argc == i) {
                 cerr << "Missing <type> for argument " << argv[i] << "." << endl;
                 exit(-1);
             }
             string value = get_value(argc, argv, i, "Missing <type> for argument %s.", name.c_str());
-			if(value != "ram" && value != "file" && value != "pipe") {
-				printf(OPENING_QUOTE"%s"CLOSING_QUOTE" is not a valid capture type.\n", value.c_str());
+            if(value != "ram" && value != "file" && value != "pipe") {
+                printf(OPENING_QUOTE"%s"CLOSING_QUOTE" is not a valid capture type.\n", value.c_str());
                 exit(-1);
-			}
-			if(value == "ram")
-				capture_memory_type = CAPTURE_AT_ONCE;
-			else if(value == "file")
-				capture_memory_type = CAPTURE_FROM_FILE;
-			else
-				capture_memory_type = CAPTURE_FROM_PIPE;
+            }
+            if(value == "ram")
+                capture_memory_type = CAPTURE_AT_ONCE;
+            else if(value == "file")
+                capture_memory_type = CAPTURE_FROM_FILE;
+            else
+                capture_memory_type = CAPTURE_FROM_PIPE;
             capture_memory_content = true;
         } else if(!strcmp(argv[i], "-mds") || !strcmp(argv[i], "--dump-size")) {
-			if (argc == i) {
+            if (argc == i) {
                 cerr << "Missing <size> for argument " << argv[i] << "." << endl;
                 exit(-1);
             }
@@ -381,7 +382,7 @@ char* process_args(int argc, char* argv[]) {
             long size = atol(value.c_str());
             memory_dump_size = pow(2, log2(size));
             cout << "Memory dump size is set to " << memory_dump_size << " KBytes" << endl;
-			dump_size_is_set = true;
+            dump_size_is_set = true;
         } else if(!strcmp(argv[i], "-auto")) {
             automatic_simulation = true;
         } else if(!strcmp(argv[i], "-no-win")) {
@@ -392,24 +393,26 @@ char* process_args(int argc, char* argv[]) {
             run_simulation = false;
         } else if(argv[i][0] == '-') {
             name = name.substr(1);
-			if(!variable_exists(name.c_str())) {
-				cerr << "Undefined switch -" << name << " or parameter "OPENING_QUOTE"" << name << ""CLOSING_QUOTE"." << endl;
-                exit(-1);
-			} else {
-				string str = get_value(argc, argv, i, "Missing <value> for parameter %s.", name.c_str());
-				int i=0;
-				string value = "";
-				string part=next(str, i);
-				try {
-					while(1) {
-						value += part+" ";
-						part = next(str, i);
-					}
-				}
-				catch(exception_t e) {}
-				value = name+"="+value;
-				cout << "Parameter "OPENING_QUOTE"" << name.c_str() << ""CLOSING_QUOTE" is set to " << evaluate(value.c_str(), 0, 0) << endl;
-			}
+            if(!variable_exists(name.c_str())) {
+                cerr << "Undefined switch -" << name << ". Trying to initiate global parameter "OPENING_QUOTE"" << name << ""CLOSING_QUOTE"." << endl;
+                //exit(-1);
+            } 
+            {
+                string str = get_value(argc, argv, i, "Missing <value> for parameter %s.", name.c_str());
+                int i=0;
+                string value = "";
+                string part=next(str, i);
+                try {
+                    while(1) {
+                        value += part+" ";
+                        part = next(str, i);
+                    }
+                }
+                catch(exception_t e) {}
+                value = name+" = "+value;
+                cout << "Parameter "OPENING_QUOTE"" << name.c_str() << ""CLOSING_QUOTE" is set to " << evaluate(value.c_str(), 0, 0) << endl;
+                
+            }
         } else {
             compiler_directors_set = true;
             filename = argv[i];
@@ -419,28 +422,28 @@ char* process_args(int argc, char* argv[]) {
         cerr << "Propagate data (-pd) does not work without capturing data (-d). It has been switched on automatically." << endl;
         capture_data = true;
     }
-	
+    
     if((allow_exceptions && !capture_exception_string) || !macros["STEP"].empty()) {
-		cerr << "Capturing exception string (-ex) is switched on automatically." << endl;
-		capture_exception_string = true;
-	}
-	
+        cerr << "Capturing exception string (-ex) is switched on automatically." << endl;
+        capture_exception_string = true;
+    }
+    
     if((!capture_memory_content || capture_memory_type!=CAPTURE_FROM_FILE) && dump_size_is_set) {
         clog << "Capturing memory content (-mc) is set to "OPENING_QUOTE"file"CLOSING_QUOTE" automatically." << endl;
-		capture_memory_type = CAPTURE_FROM_FILE;
+        capture_memory_type = CAPTURE_FROM_FILE;
         capture_memory_content = true;
     }
-	
+    
     if(capture_memory_content && !automatic_simulation) {
         cerr << "Capturing memory option (-mc) can be used only in automatic mode." << endl;
         capture_memory_content = false;
     }
-	
+    
     if(capture_memory_content && !capture_data) {
         clog << "Capturing data (-d) is switched on automatically." << endl;
         capture_data = true;
     }
-    	
+        
     char* f = new char[filename.length()+1];
     strcpy(f, filename.c_str());
     initilize_lexer(max_num_of_modules, max_num_of_global_functions);

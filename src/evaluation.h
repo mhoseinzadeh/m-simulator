@@ -33,7 +33,7 @@ bool variable_exists(const char* name);
 bool file_exists(const char * filename);
 string exec(char* cmd);
 
-char* evaluate(const char* exp, int line = 0, char* filename = "unknown");
+char* evaluate(const char* exp, int line = 0, char* filename=0);
 string evaluate_expression_result(node* module, node* exp, node* iterators = NULL);
 string evaluate_string_expression_result(node* module, node* exp, node* iterators = NULL);
 

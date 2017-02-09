@@ -18,7 +18,10 @@ exception_t exp_gen(exp_type type, int line, const char* filename, const char* f
     exception_t e;
     msg[1023] = '\0';
     strcpy(e.msg, msg);
-    strcpy(e.filename, filename);
+    if(filename)
+        strcpy(e.filename, filename);
+    else
+        strcpy(e.filename, "unknown");
     e.line = line;
     e.type = type;
     return e;
