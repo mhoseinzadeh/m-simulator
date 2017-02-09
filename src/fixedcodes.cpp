@@ -1,5 +1,6 @@
 #include "compile.h"
 #include "fixedcodes.h"
+#include "evaluation.h"
 #include <cmath>
 
 bool capture_code_string = false;
@@ -1643,7 +1644,13 @@ void generate_footer_codes(string& str) {
         str += "    __initialize_modules();\n";
         str += "    __run_simulation();\n";
     } else {
-        str += "    cpu_count = 4;\n";
+        if(!variable_exists("cpu_count"))
+            str += "    cpu_count = 1;\n";
+        else {
+            str += "    cpu_count = ";
+            str += evaluate("cpu_count"); 
+            str += ";\n";
+        }
         str += "    top_level_module = new "+top_level_module()->name+"();\n";
         str += "    __main_memory = top_level_module->"+main_memory_module()->name+";\n";
         str += "    if(argc > 1) \n";
