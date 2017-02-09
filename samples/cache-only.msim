@@ -7,7 +7,7 @@
 
 double my_latency=0;
 double avg_latency=0;
-parameter CS=1;
+parameter CS=1; // Size in GB
 
 uint64 classes[4] = {0, 0, 0, 0};
 
@@ -15,7 +15,7 @@ module system extends typical_system:
 definitions	
 	submodule Cache extends set_associative:	
 	specifications	
-		number_of_sets is 2048*CS;
+		number_of_sets is 4194304*CS;
 		associativity is 4;
 		block_size is 64;
 		access_latency is 0;
@@ -41,7 +41,7 @@ end;
 
 double one_cycle=1;
 void initialize() {
-//	offset = total_steps/2; // 50% fast-forward
+	offset = total_steps/2; // 50% fast-forward
 	frequency = 2.5GHz;
 	one_cycle = 0.99999/frequency;
 }
